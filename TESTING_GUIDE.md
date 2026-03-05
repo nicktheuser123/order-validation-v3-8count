@@ -225,14 +225,27 @@ describe("Validation", () => {
 
 At describe time, `items` is still `[]`, so `items.length === 0` is true. The "no items" test is defined and the `forEach` never runs. Later `beforeAll` populates `items`. The "no items" test then fails because `items` now has data.
 
-**Correct pattern** (evaluate at test runtime, not describe time):
+**Correct pattern** (throw in `beforeAll` if empty; iterate inside `it`):
 
 ```javascript
-describe("Validation", () => {
-  it("has items to validate", () => {
-    expect(items.length).toBeGreaterThan(0);
-  });
+// In beforeAll: throw if list is empty after fetching
+beforeAll(async () => {
+  if (!RUN_{SUITE}_TESTS) return;
+  if (!{ENTITY}_ID) {
+    throw new Error("Set {ENTITY}_ID in testConfig.js to run this suite");
+  }
 
+  items = await searchThings(TYPES.ITEM, constraints);
+
+  if (items.length === 0) {
+    throw new Error(`No items found for {ENTITY}_ID ${{{ENTITY}_ID}}`);
+  }
+
+  results = items.map(item => calculate{Domain}({ item }));
+}, 120000);
+
+// In describe: no guard test needed; forEach runs after beforeAll
+describe("Validation", () => {
   it("validates field A for all items", () => {
     items.forEach((item, i) => {
       expect(getNum(item, "field_a")).toBe(results[i].fieldA);
@@ -241,9 +254,9 @@ describe("Validation", () => {
 });
 ```
 
-The `items.forEach` runs **inside** the `it` callback, which executes **after** `beforeAll`. At that point `items` is populated.
+When `beforeAll` throws, Jest marks all tests in the suite as failed with the setup error — more honest than a vacuously-passing guard test. The `items.forEach` runs **inside** the `it` callback, which executes **after** `beforeAll`. At that point `items` is populated.
 
-**Rule:** Do not branch on fetched data at describe-definition time. Use `it()` callbacks that iterate over the data at test execution time.
+**Rule:** Do not branch on fetched data at describe-definition time. Use `it()` callbacks that iterate over the data at test execution time. When fetching a list, throw in `beforeAll` if the list is empty. Do not use a guard `it` test.
 
 ---
 
@@ -388,7 +401,7 @@ module.exports = { aggregate{Domain} };
 4. **Create lib/xCalculator.js** (or xAggregator.js if aggregating) using the calculator/aggregator template
 5. **Use testResultsLogger** (Section 12): Import it and call `step()` inside each `it()` block with dynamic data (IDs, amounts, etc.) so `test-results.md` is detailed and user-friendly
 6. **Do not** create config keys or files for domains the user did not request
-7. **Jest execution order:** When validating multiple records (e.g. list of items), do not branch on `items.length` or similar at describe-definition time. Use `it()` callbacks that iterate at test runtime (see Section 2, "Jest Execution Order")
+7. **Jest execution order:** When validating multiple records (e.g. list of items), do not branch on `items.length` at describe-definition time. After fetching a list in `beforeAll`, throw if it is empty (e.g. `if (items.length === 0) throw new Error(...)`). Then use `it()` callbacks that iterate at test runtime. No guard `it` test is needed. See Section 2.
 
 ### When user asks to "add a new assertion to X"
 
