@@ -20,7 +20,8 @@ Validates calculations against Bubble API data. Uses Jest for testing and fetche
    - Add your Bubble API credentials: `BUBBLE_API_BASE` and `BUBBLE_API_TOKEN`
 
 3. **Create test suites**
-   - This repo ships with **no test suites** by default.
+   - This repo includes an **Order validation** suite for GP (Guest Portal) orders.
+   - Set `ORDER_ID` in `testConfig.js` to the unique ID of an order (copy from Bubble DB). The suite skips when `ORDER_ID` is empty.
    - Ask an AI: "Create a test case for [your domain]" (e.g. orders, subscriptions).
    - The AI will use the instructions in [TESTING_GUIDE.md](TESTING_GUIDE.md) to add config, create test files, and calculation modules.
 
