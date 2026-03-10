@@ -3,7 +3,23 @@
     "allow": [
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(claude mcp:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(list\\(d.get\\(''mcpServers'',{}\\).keys\\(\\)\\), indent=2\\)\\)\")",
+      "Bash(python3:*)",
+      "WebFetch(domain:manual.bubble.io)",
+      "mcp__Buildprint-k8count__search_json",
+      "mcp__Buildprint-k8count__list_apps",
+      "mcp__Buildprint-k8count__get_json",
+      "mcp__Buildprint-k8count__get_guidelines",
+      "mcp__Buildprint-k8count__get_summary",
+      "Bash(npm test:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(BUBBLE_API_BASE=https://k-8count.bubbleapps.io/version-81rkv/api/1.1/obj BUBBLE_API_TOKEN=b081817350464ebabc43c21fffcad983 npx jest:*)",
+      "Bash(BUBBLE_API_BASE=https://k-8count.bubbleapps.io/version-81rkv/api/1.1/obj BUBBLE_API_TOKEN=b081817350464ebabc43c21fffcad983 node:*)",
+      "Bash(npx jest:*)",
+      "Bash(__NEW_LINE_bfffad93c4d4b761__ echo:*)"
     ]
   }
 }

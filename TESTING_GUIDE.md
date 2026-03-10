@@ -419,47 +419,96 @@ module.exports = { aggregate{Domain} };
 
 ## 9. Bubble Data API vs Buildprint MCP: Name Mapping
 
-**Critical:** The `bubbleClient` calls the **Bubble Data API** (REST). Type names and field names in `testConfig.TYPES` and in test/calculator code must use **Data API names**, not internal schema keys from Buildprint MCP or the app JSON.
+**Critical:** The `bubbleClient` calls the **Bubble Data API** (REST). There are **two separate naming rules** — one for type names (used in URL paths and `testConfig.TYPES`) and one for field names (used in test and calculator code to access JSON properties). These rules are different. Mixing them up causes 404 errors or silent `undefined` values.
 
-### Data API Type Names
+---
 
-The Bubble Data API uses the **data type name as shown in the Bubble database editor**, formatted as:
+### 9.1 Data API Type Names (for `testConfig.TYPES` and URL paths)
+
+Type names go in the URL: `GET /api/1.1/obj/{type}/{id}`. They are derived from the **editor display name**:
 
 - **Lowercase**
 - **Spaces removed**
+- Underscores and other characters preserved as-is
 
-| Editor Name | Data API Type Name |
-|-------------|--------------------|
-| Order | `order` |
-| Order Item | `orderitem` |
-| Rental Unit | `rentalunit` |
+| Editor Display Name | Data API Type Name |
+|---------------------|--------------------|
+| `Order` | `order` |
+| `Order Item` | `orderitem` |
+| `GP_Order` | `gp_order` |
+| `GP_CustomFeeType` | `gp_customfeetype` |
+| `GP_ReportingDaily` | `gp_reportingdaily` |
 
-**Source:** [Bubble Data API endpoints](https://manual.bubble.io/help-guides/integrations/api/the-bubble-api/the-data-api/data-api-endpoints)
+**Do not use Buildprint MCP internal path keys** (e.g. `/user_types/gp_customfees`) as type names. The path key is the original internal ID assigned when the type was created — it does not change if the type is later renamed. The Data API uses the **current display name**, not the original internal key.
 
-### Buildprint MCP Schema Keys (Do Not Use for API)
+| Buildprint Path Key | Editor Display Name | Correct Data API Type Name |
+|---------------------|--------------------|-----------------------------|
+| `gp_customfees` | `GP_CustomFeeType` | `gp_customfeetype` |
+| `gp_reporting_daily` | `GP_ReportingDaily` | `gp_reportingdaily` |
 
-Buildprint MCP tools (`get_summary`, `get_json`) return app JSON with **internal schema keys** in paths like `/user_types/cart_items` or `/user_types/order`. These keys (`cart_items`, `order`, etc.) are **not** the Data API type names. They are internal identifiers used by the editor and MCP.
+To verify type names: use Buildprint MCP `get_summary` to get the editor display name, then apply the lowercase + spaces-removed rule.
 
-| MCP Path | Internal Key | Data API Name (if editor name = "Order") |
-|----------|--------------|------------------------------------------|
-| /user_types/cart_items | cart_items | `order` |
-| /user_types/order | order | `orderitem` |
+---
 
-### Field Names
+### 9.2 Data API Field Names (for test and calculator code)
 
-Field names in API responses and search constraints follow the same rule: use the **display name from the Bubble editor**, formatted (lowercase, spaces removed). For example, a field "Order_items" in the editor becomes `order_items` in the API.
+Field names are used to access properties on fetched records (e.g. `order["Event"]`, `addon["OS AddOnType"]`). The Bubble Data API returns fields using their **exact editor display name** — with original casing and spaces preserved. They are **not** lowercased or reformatted.
 
-### Verification
+```js
+// Correct — use the display name exactly as it appears in Bubble editor
+order["Add Ons"]           // a list field named "Add Ons"
+order["GP_Promotion"]      // a linked field named "GP_Promotion"
+order["Gross Amount"]      // a number field named "Gross Amount"
+addon["OS AddOnType"]      // an option set field named "OS AddOnType"
+addon["GP_TicketType"]     // a linked field named "GP_TicketType"
 
-To confirm correct type names for your app:
+// Wrong — these formats do NOT work in API responses
+order.add_on_list_custom_gp_addon     // Buildprint schema key format — wrong
+order.gp_promotion_custom_gp_promotion // Buildprint schema key format — wrong
+order.gross_amount_number              // snake_case — wrong
+```
 
-1. Open the Bubble editor → **Settings** → **API** → **Data**
-2. Inspect the generated endpoint URLs (e.g. `.../obj/order`, `.../obj/orderitem`)
-3. Use those exact type names in `testConfig.TYPES`
+**Never derive field names from Buildprint MCP internal schema keys.** Buildprint uses its own internal field key format (e.g. `add_on_list_custom_gp_addon`, `gp_promotion_custom_gp_promotion`) which does not match what the Data API returns.
+
+**The only reliable way to get field names** is to fetch an actual record and inspect the JSON keys:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://{appId}.bubbleapps.io/{version}/api/1.1/obj/{type}/{id}"
+```
+
+The keys in the `response` object are the field names to use in code.
+
+#### Option set field values
+
+Option set field values are also returned as their **display name** (original casing):
+
+```js
+addon["OS AddOnType"] === "Ticket"    // value is "Ticket", not "ticket"
+promotion["OS GP Promotion Type"] === "Discount Amount"  // not "discount_amount"
+customFee["Type"] === "Percentage"    // not "porcentaje" or "percent"
+```
+
+Always verify the actual option values by fetching a real record — do not guess from Buildprint option set keys.
+
+---
+
+### 9.3 Summary
+
+| Context | Rule | Example |
+|---------|------|---------|
+| `testConfig.TYPES` values | Lowercase display name, spaces removed | `"gp_customfeetype"` |
+| Fetching records: `getThing(TYPES.X, id)` | Use `TYPES.X` (type name from above) | `getThing(TYPES.GP_ORDER, id)` |
+| Accessing fields on fetched records | Exact display name, spaces and case preserved | `order["Gross Amount"]` |
+| Option set values in comparisons | Exact display name as returned by API | `=== "Ticket"`, `=== "Percentage"` |
 
 ### AI Instruction
 
-When using Buildprint MCP to discover schema or workflows: **do not** use MCP path keys (e.g. `cart_items`, `order`) as `TYPES` values. Always derive Data API names from the editor display names using the formatting rule above, or verify against the Bubble API settings.
+When writing tests or calculators:
+1. Use Buildprint MCP `get_summary` to get editor display names for types → apply lowercase + spaces-removed rule for `TYPES` values
+2. **Always fetch a real record** to discover actual field names and option values — never guess from Buildprint internal keys
+3. Access fields with bracket notation when names contain spaces: `record["Field Name"]`
+4. Never use the Buildprint internal schema key format (`field_type_typename`) as field names in code
 
 ---
 
