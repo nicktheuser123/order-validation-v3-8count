@@ -19,7 +19,16 @@
       "Bash(BUBBLE_API_BASE=https://k-8count.bubbleapps.io/version-81rkv/api/1.1/obj BUBBLE_API_TOKEN=b081817350464ebabc43c21fffcad983 npx jest:*)",
       "Bash(BUBBLE_API_BASE=https://k-8count.bubbleapps.io/version-81rkv/api/1.1/obj BUBBLE_API_TOKEN=b081817350464ebabc43c21fffcad983 node:*)",
       "Bash(npx jest:*)",
-      "Bash(__NEW_LINE_bfffad93c4d4b761__ echo:*)"
+      "Bash(__NEW_LINE_bfffad93c4d4b761__ echo:*)",
+      "Bash(gh api:*)",
+      "Bash(grep:*)",
+      "mcp__Buildprint-k8count__fetch_data",
+      "Bash(tree -L 3 -I 'node_modules' /Users/abhishekjoseph/Documents/Code/order-validation-v3-8count 2>/dev/null || find /Users/abhishekjoseph/Documents/Code/order-validation-v3-8count -not -path '*/node_modules/*' -type f -o -not -path '*/node_modules/*' -type d | head -80)",
+      "Bash(wc -l /Users/abhishekjoseph/.claude/projects/-Users-abhishekjoseph-Documents-Code-order-validation-v3-8count/memory/*.md)",
+      "mcp__Buildprint-k8count__search_data",
+      "mcp__clickup__clickup_get_workspace_hierarchy",
+      "mcp__clickup__clickup_create_task",
+      "mcp__clickup__clickup_search"
     ]
   }
 }

@@ -12,11 +12,17 @@ const RUN_ORDER_TESTS = true;
 /** Set to false to skip reporting daily tests */
 const RUN_REPORTING_DAILY_TESTS = true;
 
-/** Primary entity ID - used to fetch the record(s) this suite validates. Set after placing an order (copy from Bubble DB). */
-const ORDER_ID = "1771394505068x510945135708078100";
+/** Set to false to skip refund tests */
+const RUN_REFUND_TESTS = true;
 
-/** GP_ReportingDaily record ID - set to validate reporting daily aggregates. */
-const REPORTING_DAILY_ID = "";
+/** Primary entity ID - used to fetch the record(s) this suite validates. Set after placing an order (copy from Bubble DB). */
+const ORDER_ID = "1772620953162x220749359989391360";
+
+/** GYM_Transaction ID for refund validation */
+const REFUND_TRANSACTION_ID = "1770899483367x651320458998562400";
+
+/** GP_Order ID linked to the refund transaction */
+const REFUND_ORDER_ID = "1770381547461x549261237477965800";
 
 /** Optional: validate multiple entities. Use empty array if not needed. */
 const ORDER_IDS = [];
@@ -35,7 +41,10 @@ const TYPES = {
   GP_REPORTINGDAILY: "gp_reportingdaily",
   GP_REPORTINGTICKETTYPEDAILY: "gp_reportingtickettypedaily",
   GP_REPORTINGCUSTOMFEEDAILY: "gp_reportingcustomfeedaily",
-  EVENT: "event"
+  EVENT: "event",
+  GYM_TRANSACTION: "gym_transaction",
+  GP_REFUNDITEMS: "gp_refunditems",
+  PAYINTENT: "payintent"
 };
 
 
@@ -43,8 +52,10 @@ module.exports = {
   BASE_URL,
   RUN_ORDER_TESTS,
   RUN_REPORTING_DAILY_TESTS,
+  RUN_REFUND_TESTS,
   ORDER_ID,
-  REPORTING_DAILY_ID,
   ORDER_IDS,
+  REFUND_TRANSACTION_ID,
+  REFUND_ORDER_ID,
   TYPES
 };

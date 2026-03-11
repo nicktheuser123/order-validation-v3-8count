@@ -396,12 +396,25 @@ module.exports = { aggregate{Domain} };
 ### When user asks to "create a test case for X"
 
 1. **Read this guide** for schemas and templates
-2. **Update testConfig.js:** Add `RUN_X_TESTS`, `X_ID`, `TYPES.X` (and related types), export all. Use **Data API type names** (Section 9)—not Buildprint MCP schema keys.
-3. **Create tests/x.test.js** using the test file template, filling in domain-specific fetch logic and assertions
-4. **Create lib/xCalculator.js** (or xAggregator.js if aggregating) using the calculator/aggregator template
-5. **Use testResultsLogger** (Section 12): Import it and call `step()` inside each `it()` block with dynamic data (IDs, amounts, etc.) so `test-results.md` is detailed and user-friendly
-6. **Do not** create config keys or files for domains the user did not request
-7. **Jest execution order:** When validating multiple records (e.g. list of items), do not branch on `items.length` at describe-definition time. After fetching a list in `beforeAll`, throw if it is empty (e.g. `if (items.length === 0) throw new Error(...)`). Then use `it()` callbacks that iterate at test runtime. No guard `it` test is needed. See Section 2.
+2. **Verify data types exist:** Before writing any files, use Buildprint MCP `get_summary` to confirm that the data types this suite will reference actually exist in the app. If a type does not exist, stop and tell the user. Do not create test files for types that aren't in the app.
+3. **Verify field names:** Fetch a real record via the Bubble Data API (or Buildprint `fetch_data`) to confirm the field names the calculator will use. Do not guess field names from templates or other apps.
+4. **Check for duplicate coverage:** Review existing test suites to ensure the new suite does not duplicate validation already covered elsewhere.
+5. **Update testConfig.js:** Add `RUN_X_TESTS`, `X_ID`, `TYPES.X` (and related types), export all. Use **Data API type names** (Section 9)—not Buildprint MCP schema keys.
+6. **Create tests/x.test.js** using the test file template, filling in domain-specific fetch logic and assertions. Import paths must use `../config/bubbleClient` (not `../bubbleClient`).
+7. **Create lib/xCalculator.js** (or xAggregator.js if aggregating) using the calculator/aggregator template
+8. **Use testResultsLogger** (Section 12): Import it and call `step()` inside each `it()` block with dynamic data (IDs, amounts, etc.) so `test-results.md` is detailed and user-friendly
+9. **Do not** create config keys or files for domains the user did not request
+10. **Jest execution order:** When validating multiple records (e.g. list of items), do not branch on `items.length` at describe-definition time. After fetching a list in `beforeAll`, throw if it is empty (e.g. `if (items.length === 0) throw new Error(...)`). Then use `it()` callbacks that iterate at test runtime. No guard `it` test is needed. See Section 2.
+
+### Pre-flight checklist (before creating any files)
+
+Before writing test files, calculators, or config, confirm all of the following:
+
+- [ ] All data types in `TYPES` verified via Buildprint `get_summary` — they exist in the app
+- [ ] At least one real record fetched to confirm field names match what the calculator will use
+- [ ] Import paths use `../config/bubbleClient` (not `../bubbleClient`)
+- [ ] Config keys (`RUN_*_TESTS`, `*_ID`, `TYPES.*`) will be added to `testConfig.js` and exported
+- [ ] No duplicate validation — existing test suites do not already cover the same assertions
 
 ### When user asks to "add a new assertion to X"
 
@@ -491,6 +504,27 @@ customFee["Type"] === "Percentage"    // not "porcentaje" or "percent"
 
 Always verify the actual option values by fetching a real record — do not guess from Buildprint option set keys.
 
+#### Search constraints (`searchThings`)
+
+Constraint keys must use the **exact same display names** as returned in GET responses (per Bubble Data API docs: "The keys should match the names of the keys returned via a GET request"):
+
+```javascript
+// Correct — constraint key matches GET response field name
+{ key: "Date Label", constraint_type: "equals", value: dateLabel }
+{ key: "Event", constraint_type: "equals", value: eventId }
+{ key: "Order Status", constraint_type: "equals", value: "Paid" }
+
+// Wrong — Buildprint schema key format
+{ key: "event_custom_event", constraint_type: "equals", value: eventId }
+{ key: "date_label_text", constraint_type: "equals", value: dateLabel }
+```
+
+#### Buildprint internal key patterns
+
+Buildprint MCP field keys follow the pattern `{fieldname}_{valuetype}` (e.g. `gross_sales_number`, `event_custom_event`, `add_on_list_custom_gp_addon`). These are internal schema identifiers, **NOT** Data API field names. The actual Data API field names are the editor display names (e.g. "Gross Sales", "Event", "Add Ons").
+
+To discover display names: use Buildprint MCP `get_json` on `/user_types/{type_id}/fields` and read the `display` property, OR fetch a real record via the Data API and inspect the JSON keys.
+
 ---
 
 ### 9.3 Summary
@@ -501,6 +535,7 @@ Always verify the actual option values by fetching a real record — do not gues
 | Fetching records: `getThing(TYPES.X, id)` | Use `TYPES.X` (type name from above) | `getThing(TYPES.GP_ORDER, id)` |
 | Accessing fields on fetched records | Exact display name, spaces and case preserved | `order["Gross Amount"]` |
 | Option set values in comparisons | Exact display name as returned by API | `=== "Ticket"`, `=== "Percentage"` |
+| Search constraints (`searchThings`) | Same as field access: exact display name | `{ key: "Date Label", constraint_type: "equals", value: "..." }` |
 
 ### AI Instruction
 
@@ -509,6 +544,7 @@ When writing tests or calculators:
 2. **Always fetch a real record** to discover actual field names and option values — never guess from Buildprint internal keys
 3. Access fields with bracket notation when names contain spaces: `record["Field Name"]`
 4. Never use the Buildprint internal schema key format (`field_type_typename`) as field names in code
+5. When building `searchThings` constraints, use the exact field display name as the `key`. Never use Buildprint internal schema keys as constraint keys.
 
 ---
 

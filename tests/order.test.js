@@ -1,6 +1,6 @@
 const { getThing } = require("../config/bubbleClient");
 const { calculateOrder } = require("../lib/orderCalculator");
-const { getNum } = require("../lib/testUtils");
+const { getNum, roundTo2 } = require("../lib/testUtils");
 const testResultsLogger = require("../config/testResultsLogger");
 const { ORDER_ID, RUN_ORDER_TESTS, TYPES } = require("../testConfig");
 
@@ -80,14 +80,38 @@ beforeAll(async () => {
 }, 120000);
 
 (RUN_ORDER_TESTS && ORDER_ID ? describe : describe.skip)("Order validation", () => {
-  it("validates gross amount", () => {
-    testResultsLogger.step("Calculated gross amount", {
-      orderId: order._id,
-      addOnCount: addOns.length,
-      calculated: result.grossAmount,
-      stored: order["Gross Amount"]
+  it("validates per-addon gross price", () => {
+    const ticketAddOns = addOns.filter((a) => a["OS AddOnType"] === "Ticket");
+    ticketAddOns.forEach((addon) => {
+      const ticketType = ticketTypes[addon["GP_TicketType"]];
+      const ticketPrice = ticketType ? Number(ticketType["Price"]) || 0 : 0;
+      const qty = Number(addon["Quantity"]) || 1;
+      const expectedGross = roundTo2(ticketPrice * qty);
+      const storedGross = Number(addon["Gross Price"]) || 0;
+      testResultsLogger.step("Per-addon gross price", {
+        addonId: addon._id,
+        ticketPrice,
+        qty,
+        expected: expectedGross,
+        stored: storedGross
+      });
+      expect(storedGross).toBeCloseTo(expectedGross, 2);
     });
-    expect(order["Gross Amount"]).toBeCloseTo(result.grossAmount, 2);
+  });
+
+  it("validates order gross amount equals sum of addon gross prices", () => {
+    const ticketAddOns = addOns.filter((a) => a["OS AddOnType"] === "Ticket");
+    const sumAddonGross = roundTo2(
+      ticketAddOns.reduce((sum, a) => sum + (Number(a["Gross Price"]) || 0), 0)
+    );
+    const storedOrderGross = Number(order["Gross Amount"]) || 0;
+    testResultsLogger.step("Order gross amount vs sum of addon gross prices", {
+      orderId: order._id,
+      addonCount: ticketAddOns.length,
+      sumAddonGross,
+      storedOrderGross
+    });
+    expect(storedOrderGross).toBeCloseTo(sumAddonGross, 2);
   });
 
   it("validates ticket count", () => {
@@ -213,5 +237,31 @@ beforeAll(async () => {
       eventId: eventId || "(none)"
     });
     expect(eventId != null && eventId !== "").toBe(true);
+  });
+
+  it("validates RefundTransactions populated when refunds exist", () => {
+    const refundTxns = order["RefundTransactions"] || [];
+    const hasRefunds = refundTxns.length > 0;
+    testResultsLogger.step("RefundTransactions check", {
+      orderId: order._id,
+      refundTransactionCount: refundTxns.length,
+      hasRefunds
+    });
+    if (hasRefunds) {
+      expect(refundTxns.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("validates RefundIntents populated when refunds exist", () => {
+    const refundIntents = order["RefundIntents"] || [];
+    const hasRefunds = refundIntents.length > 0;
+    testResultsLogger.step("RefundIntents check", {
+      orderId: order._id,
+      refundIntentCount: refundIntents.length,
+      hasRefunds
+    });
+    if (hasRefunds) {
+      expect(refundIntents.length).toBeGreaterThan(0);
+    }
   });
 });

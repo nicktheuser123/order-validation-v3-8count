@@ -64,6 +64,15 @@ When `beforeAll` throws, Jest marks all tests in the suite as failed with the se
 
 Type names in `TYPES` must be the Bubble editor display name, lowercased with spaces removed (e.g. "Order Item" → `orderitem`). Buildprint MCP internal schema keys (e.g. `cart_items`) are **not** the same as Data API type names.
 
+### Buildprint MCP for verification
+
+When you need to verify Bubble app details (option set values, field names, data type schemas, or actual record data), use the Buildprint MCP tools instead of asking the user. Key tools:
+- `get_json` / `search_json` — explore app schema, option sets, workflows
+- `fetch_data` — fetch actual Bubble records by ID
+- `search_data` — search Bubble data with constraints
+
+The app ID and version can be derived from `BASE_URL` in `testConfig.js` using `lib/parseBubbleUrl.js`.
+
 ### Environment
 
 Copy `.env.example` to `.env` and set:
