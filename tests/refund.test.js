@@ -154,6 +154,18 @@ beforeAll(async () => {
       });
       expect(sumAmounts).toBeCloseTo(netAmount, 2);
     });
+
+    it("validates recoverable? flag is explicitly a boolean on each item", () => {
+      refundItems.forEach((item) => {
+        const recov = item["recoverable?"];
+        testResultsLogger.step("recoverable? flag type", {
+          itemId: item._id,
+          recoverableValue: recov,
+          typeOf: typeof recov
+        });
+        expect(typeof recov).toBe("boolean");
+      });
+    });
   }
 );
 

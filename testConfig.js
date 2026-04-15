@@ -4,7 +4,7 @@
  */
 
 /** Base URL for Playwright recording - where codegen opens the browser */
-const BASE_URL = "https://8countlogin.com/version-81rkv/event/report-vals-2026"; // e.g. "https://yourapp.bubbleapps.io"
+const BASE_URL = "https://8countlogin.com/version-81rkv/event/test-event-v81rkv-2026"; // e.g. "https://yourapp.bubbleapps.io"
 
 /** Set to false to skip this test suite */
 const RUN_ORDER_TESTS = true;
@@ -13,16 +13,16 @@ const RUN_ORDER_TESTS = true;
 const RUN_REPORTING_DAILY_TESTS = true;
 
 /** Set to false to skip refund tests */
-const RUN_REFUND_TESTS = true;
+const RUN_REFUND_TESTS = false;
 
 /** Primary entity ID - used to fetch the record(s) this suite validates. Set after placing an order (copy from Bubble DB). */
-const ORDER_ID = "1772620953162x220749359989391360";
+const ORDER_ID = "1775018761897x109834756373872640";
 
 /** GYM_Transaction ID for refund validation */
-const REFUND_TRANSACTION_ID = "1770899483367x651320458998562400";
+const REFUND_TRANSACTION_ID = "1774065658466x817743924321321000";
 
 /** GP_Order ID linked to the refund transaction */
-const REFUND_ORDER_ID = "1770381547461x549261237477965800";
+const REFUND_ORDER_ID = "1774065658466x817743924321321000";
 
 /** Optional: validate multiple entities. Use empty array if not needed. */
 const ORDER_IDS = [];

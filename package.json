@@ -5,7 +5,12 @@
   "scripts": {
     "test": "jest --config=config/jest.config.js",
     "test:watch": "jest --watch --config=config/jest.config.js",
-    "record": "node scripts/playwright-record.js"
+    "record": "node scripts/playwright-record.js",
+    "audit": "node scripts/audit-recording.js",
+    "flow": "node scripts/run-flow.js",
+    "flow:create-event": "node flows/create-event.flow.js",
+    "pipeline": "node scripts/pipeline-server.js",
+    "test:pipeline": "node scripts/test-pipeline.js"
   },
   "keywords": [
     "template",
@@ -21,7 +26,8 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "dotenv": "^16.3.0"
+    "dotenv": "^16.3.0",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

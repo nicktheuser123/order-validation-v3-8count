@@ -179,10 +179,10 @@ beforeAll(async () => {
   });
 
   it("validates custom fees", () => {
-    const storedCustomFees = orderFees.reduce(
-      (sum, f) => sum + (Number(f["GP_OrderFee Amt"]) || 0),
+    const storedCustomFees = roundTo2(orderFees.reduce(
+      (sum, f) => sum + roundTo2(Number(f["GP_OrderFee Amt"]) || 0),
       0
-    );
+    ));
     testResultsLogger.step("Summed order fees vs calculated custom fees", {
       orderId: order._id,
       orderFeeCount: orderFees.length,
@@ -237,31 +237,5 @@ beforeAll(async () => {
       eventId: eventId || "(none)"
     });
     expect(eventId != null && eventId !== "").toBe(true);
-  });
-
-  it("validates RefundTransactions populated when refunds exist", () => {
-    const refundTxns = order["RefundTransactions"] || [];
-    const hasRefunds = refundTxns.length > 0;
-    testResultsLogger.step("RefundTransactions check", {
-      orderId: order._id,
-      refundTransactionCount: refundTxns.length,
-      hasRefunds
-    });
-    if (hasRefunds) {
-      expect(refundTxns.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("validates RefundIntents populated when refunds exist", () => {
-    const refundIntents = order["RefundIntents"] || [];
-    const hasRefunds = refundIntents.length > 0;
-    testResultsLogger.step("RefundIntents check", {
-      orderId: order._id,
-      refundIntentCount: refundIntents.length,
-      hasRefunds
-    });
-    if (hasRefunds) {
-      expect(refundIntents.length).toBeGreaterThan(0);
-    }
   });
 });

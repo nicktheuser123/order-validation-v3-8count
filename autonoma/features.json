@@ -1,0 +1,193 @@
+{
+  "features": [
+    {
+      "name": "Order Validation Suite",
+      "type": "flow",
+      "path": "tests/order.test.js",
+      "core": true
+    },
+    {
+      "name": "Reporting Daily Validation Suite",
+      "type": "flow",
+      "path": "tests/reportingDaily.test.js",
+      "core": true
+    },
+    {
+      "name": "Refund Validation Suite",
+      "type": "flow",
+      "path": "tests/refund.test.js",
+      "core": true
+    },
+    {
+      "name": "Pipeline Dashboard",
+      "type": "page",
+      "path": "/dashboard.html",
+      "core": false
+    },
+    {
+      "name": "Empty Dashboard State",
+      "type": "page",
+      "path": "/dashboard-empty.html",
+      "core": false
+    },
+    {
+      "name": "New Recording",
+      "type": "page",
+      "path": "/new-recording.html",
+      "core": false
+    },
+    {
+      "name": "Stabilization Checklist",
+      "type": "page",
+      "path": "/stabilization-checklist.html",
+      "core": false
+    },
+    {
+      "name": "Verify Fixture",
+      "type": "page",
+      "path": "/verify-fixture.html",
+      "core": false
+    },
+    {
+      "name": "Login (mock wireframe)",
+      "type": "page",
+      "path": "/login.html",
+      "core": false
+    },
+    {
+      "name": "Signup (mock wireframe)",
+      "type": "page",
+      "path": "/signup.html",
+      "core": false
+    },
+    {
+      "name": "List Flows",
+      "type": "api",
+      "path": "/api/flows",
+      "core": false
+    },
+    {
+      "name": "Start Recording",
+      "type": "api",
+      "path": "/api/recording-start",
+      "core": false
+    },
+    {
+      "name": "Recording Status",
+      "type": "api",
+      "path": "/api/recording-status",
+      "core": false
+    },
+    {
+      "name": "Update Flow Phase",
+      "type": "api",
+      "path": "/api/flows/:name/phase",
+      "core": false
+    },
+    {
+      "name": "Verify Recording",
+      "type": "api",
+      "path": "/api/verify",
+      "core": false
+    },
+    {
+      "name": "Analysis Status",
+      "type": "api",
+      "path": "/api/analysis",
+      "core": false
+    },
+    {
+      "name": "Apply Stable IDs",
+      "type": "api",
+      "path": "/api/apply-ids",
+      "core": false
+    },
+    {
+      "name": "Reverify Recording",
+      "type": "api",
+      "path": "/api/reverify",
+      "core": false
+    },
+    {
+      "name": "Generate Flow",
+      "type": "api",
+      "path": "/api/generate-flow",
+      "core": false
+    },
+    {
+      "name": "Fetch Bubble Record",
+      "type": "api",
+      "path": "/api/fetch-bubble",
+      "core": false
+    },
+    {
+      "name": "Save Fixture",
+      "type": "api",
+      "path": "/api/save-fixture",
+      "core": false
+    },
+    {
+      "name": "Get Fixture",
+      "type": "api",
+      "path": "/api/get-fixture",
+      "core": false
+    },
+    {
+      "name": "Run Flow",
+      "type": "api",
+      "path": "/api/run-flow",
+      "core": false
+    },
+    {
+      "name": "Run Status",
+      "type": "api",
+      "path": "/api/run-status",
+      "core": false
+    },
+    {
+      "name": "Order Calculator",
+      "type": "component",
+      "path": "lib/orderCalculator.js",
+      "core": true
+    },
+    {
+      "name": "Refund Calculator",
+      "type": "component",
+      "path": "lib/refundCalculator.js",
+      "core": false
+    },
+    {
+      "name": "Bubble API Client",
+      "type": "component",
+      "path": "config/bubbleClient.js",
+      "core": false
+    },
+    {
+      "name": "Jest Markdown Reporter",
+      "type": "component",
+      "path": "config/jestMarkdownReporter.js",
+      "core": false
+    },
+    {
+      "name": "Test Results Logger",
+      "type": "component",
+      "path": "config/testResultsLogger.js",
+      "core": false
+    },
+    {
+      "name": "Run Result Modal",
+      "type": "modal",
+      "path": "/dashboard.html#runModal",
+      "core": false
+    },
+    {
+      "name": "Test Suite Flags",
+      "type": "settings",
+      "path": "testConfig.js",
+      "core": false
+    }
+  ],
+  "total_features": 31,
+  "total_routes": 7,
+  "total_api_routes": 14
+}

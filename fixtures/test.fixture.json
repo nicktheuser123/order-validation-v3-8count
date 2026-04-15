@@ -1,0 +1,92 @@
+{
+  "flowName": "test",
+  "createdAt": "2026-03-31T01:42:23.238Z",
+  "records": [
+    {
+      "type": "event",
+      "id": "1774921148343x156709340976250880",
+      "fields": {
+        "Created Date": {
+          "value": "2026-03-31T01:39:09.159Z",
+          "verified": false
+        },
+        "endDate": {
+          "value": "2026-04-01T04:00:00.000Z",
+          "verified": false
+        },
+        "usersCreators": {
+          "value": "1748923686085x834870789147290900",
+          "verified": false
+        },
+        "Created By": {
+          "value": "1748923686085x834870789147290900",
+          "verified": false
+        },
+        "Modified Date": {
+          "value": "2026-03-31T01:39:56.693Z",
+          "verified": false
+        },
+        "???Draft?": {
+          "value": "true",
+          "verified": false
+        },
+        "timezoneid": {
+          "value": "America/New_York",
+          "verified": true
+        },
+        "published": {
+          "value": "false",
+          "verified": false
+        },
+        "startDate": {
+          "value": "2026-03-31T04:00:00.000Z",
+          "verified": false
+        },
+        "geolocation": {
+          "value": "{\"address\":\"New York, NY, USA\",\"lat\":40.7127753,\"lng\":-74.0059728}",
+          "verified": false
+        },
+        "Active?": {
+          "value": "true",
+          "verified": false
+        },
+        "Cadence": {
+          "value": "0",
+          "verified": false
+        },
+        "GP_payment_collection_terms": {
+          "value": "Deposit/Partial",
+          "verified": true
+        },
+        "GP_EventSearchText": {
+          "value": "test1",
+          "verified": true
+        },
+        "event_description": {
+          "value": "test",
+          "verified": true
+        },
+        "Slug": {
+          "value": "test1-2026",
+          "verified": false
+        },
+        "name": {
+          "value": "test1",
+          "verified": true
+        },
+        "ScoresheetClasses": {
+          "value": "OCS, Rental",
+          "verified": true
+        },
+        "Producer": {
+          "value": "1748923720074x832884068004921300",
+          "verified": true
+        },
+        "GP_EventDetail": {
+          "value": "1774921190931x428249920049250300",
+          "verified": false
+        }
+      }
+    }
+  ]
+}

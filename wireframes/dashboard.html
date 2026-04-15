@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flows — Pipeline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fafafa;
+      color: #1f2937;
+      min-width: 1024px;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Header */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      background: #6366F1;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .header-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+    .header-nav a {
+      font-size: 14px;
+      color: #4b5563;
+      transition: color 0.15s;
+    }
+    .header-nav a:hover { color: #1f2937; }
+    .header-right {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .header-avatar {
+      width: 32px;
+      height: 32px;
+      background: #6366F1;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Main */
+    .main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 32px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: #6366F1;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+
+    /* Flow cards */
+    .flow-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .flow-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: box-shadow 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    .flow-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-color: #d1d5db;
+    }
+    .flow-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .flow-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .flow-meta {
+      display: none;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    .flow-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Mini stepper dots */
+    .mini-dots {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mini-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e5e7eb;
+    }
+    .mini-dot.completed { background: #22c55e; }
+    .mini-dot.current { background: #6366F1; }
+
+    /* Phase badge */
+    .phase-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .phase-badge.verify {
+      background: #EEF2FF;
+      color: #6366F1;
+    }
+    .phase-badge.ids {
+      background: #FFF7ED;
+      color: #EA580C;
+    }
+    .phase-badge.done {
+      background: #F0FDF4;
+      color: #16a34a;
+    }
+
+    /* Phase badge — recording */
+    .phase-badge.recording {
+      background: #F3F4F6;
+      color: #6b7280;
+    }
+
+    /* Run button on card */
+    .btn-run {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-run:hover { background: #dcfce7; }
+    .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Run result modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+    }
+    .modal {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      padding: 28px 32px; width: 560px; max-width: 90vw;
+    }
+    .modal-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 16px;
+    }
+    .modal-title { font-size: 16px; font-weight: 600; }
+    .modal-close {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: #9ca3af; line-height: 1; padding: 4px;
+    }
+    .modal-close:hover { color: #4b5563; }
+    .run-log {
+      background: #111827; color: #d1fae5; font-family: 'SF Mono','Fira Code','Consolas',monospace;
+      font-size: 12px; line-height: 1.6; padding: 16px; border-radius: 8px;
+      max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .run-status-row {
+      display: flex; align-items: center; gap: 10px; margin-top: 14px;
+    }
+    .run-pill {
+      padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    }
+    .run-pill.running { background: #EEF2FF; color: #6366F1; }
+    .run-pill.passed { background: #F0FDF4; color: #16a34a; }
+    .run-pill.failed { background: #FEF2F2; color: #dc2626; }
+
+    /* Footer */
+    .footer-text {
+      margin-top: 24px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo">P</div>
+      <span class="header-title">Pipeline</span>
+    </div>
+    <nav class="header-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="#">Docs</a>
+    </nav>
+    <div class="header-right">
+      <div class="header-avatar">AJ</div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title">Flows</h1>
+      <a href="new-recording.html" class="btn-primary">+ New Recording</a>
+    </div>
+
+    <div id="flowList" class="flow-cards"></div>
+    <div class="footer-text" id="flowCount"></div>
+  </main>
+
+  <!-- Run result modal -->
+  <div class="modal-overlay" id="runModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modalTitle">Running flow…</span>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <pre class="run-log" id="runLog">Starting…</pre>
+      <div class="run-status-row">
+        <span class="run-pill running" id="runPill">Running</span>
+        <span style="font-size:13px;color:#6b7280" id="runMsg">Please wait…</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000';
+
+    const PHASE_CONFIG = {
+      recording: {
+        label: 'Recording…', badgeClass: 'recording',
+        dots: ['current', '', ''], href: null, canRun: false
+      },
+      ids: {
+        label: 'IDs', badgeClass: 'ids',
+        dots: ['completed', 'current', ''],
+        href: name => `stabilization-checklist.html?flow=${encodeURIComponent(name)}`,
+        canRun: false
+      },
+      done: {
+        label: 'Done', badgeClass: 'done',
+        dots: ['completed', 'completed', 'completed'],
+        href: null,
+        canRun: true
+      }
+    };
+
+    function dotClass(s) {
+      if (s === 'completed') return 'mini-dot completed';
+      if (s === 'current') return 'mini-dot current';
+      return 'mini-dot';
+    }
+
+    function renderCard(name, meta) {
+      const cfg = PHASE_CONFIG[meta.phase] || PHASE_CONFIG.ids;
+      const href = cfg.href ? cfg.href(name) : null;
+      const tag = href ? 'a' : 'div';
+      const hrefAttr = href ? `href="${href}"` : '';
+      const runBtn = (cfg.canRun && meta.hasFlowFile)
+        ? `<button class="btn-run" data-flow="${name}" onclick="event.preventDefault();event.stopPropagation();runFlow('${name}')">&#9654; Run</button>`
+        : '';
+
+      return `
+        <${tag} ${hrefAttr} class="flow-card" style="${!href ? 'opacity:0.6;cursor:default' : ''}">
+          <div class="flow-info">
+            <div class="flow-name">${name}</div>
+          </div>
+          <div class="flow-right">
+            ${runBtn}
+            <div class="mini-dots">
+              ${cfg.dots.map(s => `<div class="${dotClass(s)}"></div>`).join('')}
+            </div>
+            <span class="phase-badge ${cfg.badgeClass}">${cfg.label}</span>
+          </div>
+        </${tag}>
+      `;
+    }
+
+    async function loadFlows() {
+      try {
+        const res = await fetch(`${API}/api/flows`);
+        const { flows } = await res.json();
+        const entries = Object.entries(flows || {});
+
+        if (entries.length === 0) {
+          window.location.href = 'dashboard-empty.html';
+          return;
+        }
+
+        document.getElementById('flowList').innerHTML = entries
+          .map(([name, meta]) => renderCard(name, meta))
+          .join('');
+        const n = entries.length;
+        document.getElementById('flowCount').textContent = `${n} flow${n !== 1 ? 's' : ''}`;
+      } catch {
+        window.location.href = 'dashboard-empty.html';
+      }
+    }
+
+    loadFlows();
+
+    // ── Run flow ──────────────────────────────────────────────────────────────
+
+    let runPollInterval = null;
+    let activeRunFlow = null;
+
+    async function runFlow(flowName) {
+      activeRunFlow = flowName;
+
+      // Show modal
+      document.getElementById('modalTitle').textContent = `Running: ${flowName}`;
+      document.getElementById('runLog').textContent = 'Starting…';
+      document.getElementById('runPill').className = 'run-pill running';
+      document.getElementById('runPill').textContent = 'Running';
+      document.getElementById('runMsg').textContent = 'Please wait…';
+      document.getElementById('runModal').style.display = 'flex';
+
+      // Disable run button
+      const btn = document.querySelector(`[data-flow="${flowName}"]`);
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/api/run-flow`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flowName })
+        });
+        if (!res.ok) {
+          const { error } = await res.json();
+          document.getElementById('runLog').textContent = 'Error: ' + error;
+          document.getElementById('runPill').className = 'run-pill failed';
+          document.getElementById('runPill').textContent = 'Failed';
+          document.getElementById('runMsg').textContent = error;
+          if (btn) btn.disabled = false;
+          return;
+        }
+      } catch (err) {
+        document.getElementById('runLog').textContent = 'Error: ' + err.message;
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      runPollInterval = setInterval(() => pollRunStatus(flowName), 1500);
+    }
+
+    async function pollRunStatus(flowName) {
+      try {
+        const res = await fetch(`${API}/api/run-status?flow=${encodeURIComponent(flowName)}`);
+        const data = await res.json();
+
+        const logEl = document.getElementById('runLog');
+        logEl.textContent = data.output || '(no output yet)';
+        logEl.scrollTop = logEl.scrollHeight;
+
+        if (!data.running) {
+          clearInterval(runPollInterval);
+          runPollInterval = null;
+
+          const pill = document.getElementById('runPill');
+          const msg = document.getElementById('runMsg');
+          if (data.success) {
+            pill.className = 'run-pill passed';
+            pill.textContent = 'Passed';
+            msg.textContent = 'Flow completed successfully.';
+          } else {
+            pill.className = 'run-pill failed';
+            pill.textContent = 'Failed';
+            msg.textContent = 'Flow exited with errors — see output above.';
+          }
+
+          const btn = document.querySelector(`[data-flow="${flowName}"]`);
+          if (btn) btn.disabled = false;
+        }
+      } catch {
+        // keep polling
+      }
+    }
+
+    document.getElementById('modalClose').addEventListener('click', () => {
+      document.getElementById('runModal').style.display = 'none';
+      if (runPollInterval) { clearInterval(runPollInterval); runPollInterval = null; }
+    });
+  </script>
+</body>
+</html>

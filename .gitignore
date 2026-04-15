@@ -18,6 +18,7 @@ yarn.lock
 coverage/
 recordings/
 test-results.md
+test-results/
 .jest-test-steps.json
 .nyc_output/
 *.lcov
@@ -38,7 +39,27 @@ logs/
 Thumbs.db
 .DS_Store
 
+# Flow config files (may contain credentials)
+flows/*.config.json
+
+# Pipeline runtime state
+flows/flows.json
+
+# Fixtures (contain real Bubble data — commit per preference)
+# fixtures/
+
 # Temporary files
 tmp/
 temp/
 *.tmp
+
+# Playwright CLI debug output
+.playwright-cli/
+
+# Playwright Codegen stray artifacts at root
+/*.yaml
+/*.yml
+/after-*.png
+/checkout-*.png
+/promo-*.png
+/tickets-*.png

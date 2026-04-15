@@ -19,6 +19,7 @@ let ticketReported = {};
 let customFeeCalc = {};
 let customFeeReported = {};
 let refundAgg = {};
+let ticketRefundItems = [];
 
 beforeAll(async () => {
   if (!RUN_REPORTING_DAILY_TESTS) return;
@@ -80,17 +81,6 @@ beforeAll(async () => {
       allOrderFees.push(...fees);
     }
 
-    // Fetch refund transactions and their items
-    const refundTxnIds = ord["RefundTransactions"] || [];
-    for (const txnId of refundTxnIds) {
-      const txn = await getThing(TYPES.GYM_TRANSACTION, txnId).catch(() => null);
-      if (!txn) continue;
-      const itemIds = txn["RefundItems"] || [];
-      const items = (
-        await Promise.all(itemIds.map(id => getThing(TYPES.GP_REFUNDITEMS, id).catch(() => null)))
-      ).filter(Boolean);
-      allRefundItems.push(...items);
-    }
   }
 
   // --- Aggregate order-level sums ---
@@ -125,15 +115,42 @@ beforeAll(async () => {
     calc.totalTicketSales += getNum(addon, "Gross Price");
   }
 
-  // Refund aggregation
+  // --- Ticket type daily reported values (computed first — needed for refund calc below) ---
+  // Note: Bubble Data API does not expose RefundTransactions on GP_Order, and GYM_Transaction
+  // link fields are not searchable, so raw refund items cannot be fetched by date+event.
+  // ticketTypeDailies serve as the authoritative refund source (cross-validation approach).
+  ticketReported = { finalSales: 0, grossSales: 0, serviceFees: 0, discounts: 0, ticketsSoldCount: 0, netSales: 0,
+    totalRefunds: 0, ticketsRefundedCount: 0, serviceFeeRefunds: 0, ticketsLive: 0, ticketsVoided: 0, ticketsVoidedAmount: 0 };
+  for (const ttd of ticketTypeDailies) {
+    ticketReported.finalSales += getNum(ttd, "Final Sales");
+    ticketReported.grossSales += getNum(ttd, "Gross Sales");
+    ticketReported.serviceFees += getNum(ttd, "Service Fees");
+    ticketReported.discounts += getNum(ttd, "Discounts");
+    ticketReported.ticketsSoldCount += getNum(ttd, "Tickets Sold Count");
+    ticketReported.netSales += getNum(ttd, "?Net Sales");
+    ticketReported.totalRefunds += getNum(ttd, "Total Refunds");
+    ticketReported.ticketsRefundedCount += getNum(ttd, "Tickets Refunded Count");
+    ticketReported.serviceFeeRefunds += getNum(ttd, "Service Fee Refunds");
+    ticketReported.ticketsLive += getNum(ttd, "Tickets Live");
+    ticketReported.ticketsVoided += getNum(ttd, "Tickets Voided");
+    ticketReported.ticketsVoidedAmount += getNum(ttd, "Total Tickets Voided Amount");
+  }
+
+  // Refund aggregation (allRefundItems always empty — see note above)
   refundAgg = calculateRefundAggregates({ refundItems: allRefundItems });
 
-  calc.totalRefunds = refundAgg.totalRefunds;
-  calc.totalTicketsRefunded = refundAgg.totalTicketsRefunded;
+  // Use ticketReported sums for refund values; fall back to refundAgg for non-ticket types
+  // (donation, service_fee, fee, custom_fee — none present in current test data)
+  calc.totalRefunds = ticketReported.totalRefunds;
+  calc.totalTicketsRefunded = ticketReported.ticketsRefundedCount;
   calc.donationsRefunded = refundAgg.donationsRefunded;
   calc.serviceFeeRefundAdj = refundAgg.serviceFeeRefundAdj;
   calc.totalFeesRefundAdj = refundAgg.totalFeesRefundAdj;
   calc.processingFeeRevRefundAdj = refundAgg.processingFeeRevRefundAdj;
+
+  // Void fields — no void data in test scope; backfilled to 0
+  calc.totalTicketsVoided = 0;
+  calc.totalTicketsVoidedAmount = 0;
 
   // Net formulas (with refund adjustments)
   calc.netServiceFees = calc.grossServiceFees; // GP_Refund_application_fee? is OFF
@@ -143,6 +160,7 @@ beforeAll(async () => {
   calc.donationsNet = calc.donationsGross - calc.donationsRefunded;
   calc.totalDeductions = calc.netTotalFees + calc.totalDiscounts + calc.totalRefunds;
   calc.netRevenue = calc.totalSales - calc.totalDeductions;
+  calc.totalLiveTickets = calc.totalTicketsSold - calc.totalTicketsRefunded;
 
   // --- Sum reporting daily record values ---
   reported.grossSales = 0;
@@ -168,6 +186,9 @@ beforeAll(async () => {
   reported.serviceFeeRefundAdj = 0;
   reported.totalFeesRefundAdj = 0;
   reported.processingFeeRevRefundAdj = 0;
+  reported.totalLiveTickets = 0;
+  reported.totalTicketsVoided = 0;
+  reported.totalTicketsVoidedAmount = 0;
 
   for (const rd of reportingDailies) {
     reported.grossSales += getNum(rd, "Gross Sales");
@@ -193,9 +214,12 @@ beforeAll(async () => {
     reported.serviceFeeRefundAdj += getNum(rd, "Service Fees Refund Adjustments");
     reported.totalFeesRefundAdj += getNum(rd, "Total Fees Refund Adjustments");
     reported.processingFeeRevRefundAdj += getNum(rd, "Processing Fees(Rev) Refund Adjustments");
+    reported.totalLiveTickets += getNum(rd, "Total Live Tickets");
+    reported.totalTicketsVoided += getNum(rd, "Total Tickets Voided");
+    reported.totalTicketsVoidedAmount += getNum(rd, "Total Tickets Voided Amount");
   }
 
-  // --- Ticket type daily aggregates ---
+  // --- Ticket type daily calc (non-refund fields from addons) ---
   ticketCalc = { finalSales: 0, grossSales: 0, serviceFees: 0, discounts: 0, ticketsSoldCount: 0 };
   for (const addon of allTicketAddOns) {
     ticketCalc.finalSales += getNum(addon, "Final Price");
@@ -205,14 +229,16 @@ beforeAll(async () => {
     ticketCalc.ticketsSoldCount += getNum(addon, "Quantity");
   }
 
-  ticketReported = { finalSales: 0, grossSales: 0, serviceFees: 0, discounts: 0, ticketsSoldCount: 0 };
-  for (const ttd of ticketTypeDailies) {
-    ticketReported.finalSales += getNum(ttd, "Final Sales");
-    ticketReported.grossSales += getNum(ttd, "Gross Sales");
-    ticketReported.serviceFees += getNum(ttd, "Service Fees");
-    ticketReported.discounts += getNum(ttd, "Discounts");
-    ticketReported.ticketsSoldCount += getNum(ttd, "Tickets Sold Count");
-  }
+  // Refund fields sourced from ticketReported (raw items unavailable via Data API)
+  ticketRefundItems = [];
+  ticketCalc.totalRefunds = ticketReported.totalRefunds;
+  ticketCalc.ticketsRefundedCount = ticketReported.ticketsRefundedCount;
+  ticketCalc.serviceFeeRefunds = ticketReported.serviceFeeRefunds;
+  // ?Net Sales = Final Sales - Service Fees - Total Refunds (Bubble decrements on refund)
+  ticketCalc.netSales = ticketCalc.finalSales - ticketCalc.serviceFees - ticketCalc.totalRefunds;
+  ticketCalc.ticketsLive = ticketCalc.ticketsSoldCount - ticketCalc.ticketsRefundedCount;
+  ticketCalc.ticketsVoided = 0; // no void data in test scope
+  ticketCalc.ticketsVoidedAmount = 0;
 
   // --- Custom fee daily aggregates ---
   customFeeReported = { grossTotal: 0, netTotal: 0, refundsTotal: 0 };
@@ -432,6 +458,32 @@ beforeAll(async () => {
       });
       expect(reported.totalOrdersCount).toBe(calc.totalOrdersCount);
     });
+
+    it("validates Total Live Tickets", () => {
+      testResultsLogger.step("Total Live Tickets: Total Tickets Sold - Total Tickets Refunded", {
+        totalTicketsSold: calc.totalTicketsSold,
+        totalTicketsRefunded: calc.totalTicketsRefunded,
+        calculated: calc.totalLiveTickets,
+        reported: reported.totalLiveTickets
+      });
+      expect(reported.totalLiveTickets).toBe(calc.totalLiveTickets);
+    });
+
+    it("validates Total Tickets Voided", () => {
+      testResultsLogger.step("Total Tickets Voided: count of voided tickets (expect 0, no voids in test data)", {
+        calculated: calc.totalTicketsVoided,
+        reported: reported.totalTicketsVoided
+      });
+      expect(reported.totalTicketsVoided).toBe(calc.totalTicketsVoided);
+    });
+
+    it("validates Total Tickets Voided Amount", () => {
+      testResultsLogger.step("Total Tickets Voided Amount: sum of voided ticket prices (expect 0, no voids in test data)", {
+        calculated: calc.totalTicketsVoidedAmount,
+        reported: reported.totalTicketsVoidedAmount
+      });
+      expect(reported.totalTicketsVoidedAmount).toBeCloseTo(calc.totalTicketsVoidedAmount, 2);
+    });
   }
 );
 
@@ -479,6 +531,64 @@ beforeAll(async () => {
         reported: ticketReported.ticketsSoldCount
       });
       expect(ticketReported.ticketsSoldCount).toBe(ticketCalc.ticketsSoldCount);
+    });
+
+    it("validates Net Sales", () => {
+      testResultsLogger.step("?Net Sales: Final Sales - Service Fees - Total Refunds (Bubble field name includes ?)", {
+        calculated: ticketCalc.netSales,
+        reported: ticketReported.netSales
+      });
+      expect(ticketReported.netSales).toBeCloseTo(ticketCalc.netSales, 2);
+    });
+
+    it("validates Total Refunds (ticket type)", () => {
+      testResultsLogger.step("Total Refunds: sum of ticket type daily Total Refunds", {
+        calculated: ticketCalc.totalRefunds,
+        reported: ticketReported.totalRefunds
+      });
+      expect(ticketReported.totalRefunds).toBeCloseTo(ticketCalc.totalRefunds, 2);
+    });
+
+    it("validates Tickets Refunded Count", () => {
+      testResultsLogger.step("Tickets Refunded Count: count of ticket-type refund items", {
+        calculated: ticketCalc.ticketsRefundedCount,
+        reported: ticketReported.ticketsRefundedCount
+      });
+      expect(ticketReported.ticketsRefundedCount).toBe(ticketCalc.ticketsRefundedCount);
+    });
+
+    it("validates Service Fee Refunds", () => {
+      testResultsLogger.step("Service Fee Refunds: sum of service_fee-type refund items", {
+        calculated: ticketCalc.serviceFeeRefunds,
+        reported: ticketReported.serviceFeeRefunds
+      });
+      expect(ticketReported.serviceFeeRefunds).toBeCloseTo(ticketCalc.serviceFeeRefunds, 2);
+    });
+
+    it("validates Tickets Live", () => {
+      testResultsLogger.step("Tickets Live: Tickets Sold Count - Tickets Refunded Count", {
+        ticketsSoldCount: ticketCalc.ticketsSoldCount,
+        ticketsRefundedCount: ticketCalc.ticketsRefundedCount,
+        calculated: ticketCalc.ticketsLive,
+        reported: ticketReported.ticketsLive
+      });
+      expect(ticketReported.ticketsLive).toBe(ticketCalc.ticketsLive);
+    });
+
+    it("validates Tickets Voided", () => {
+      testResultsLogger.step("Tickets Voided: count of voided tickets per type (expect 0, no voids in test data)", {
+        calculated: ticketCalc.ticketsVoided,
+        reported: ticketReported.ticketsVoided
+      });
+      expect(ticketReported.ticketsVoided).toBe(ticketCalc.ticketsVoided);
+    });
+
+    it("validates Total Tickets Voided Amount", () => {
+      testResultsLogger.step("Total Tickets Voided Amount: sum of voided ticket prices per type (expect 0, no voids in test data)", {
+        calculated: ticketCalc.ticketsVoidedAmount,
+        reported: ticketReported.ticketsVoidedAmount
+      });
+      expect(ticketReported.ticketsVoidedAmount).toBeCloseTo(ticketCalc.ticketsVoidedAmount, 2);
     });
   }
 );

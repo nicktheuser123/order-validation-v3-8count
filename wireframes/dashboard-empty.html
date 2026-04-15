@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flows — Pipeline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fafafa;
+      color: #1f2937;
+      min-width: 1024px;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Header */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      background: #6366F1;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .header-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+    .header-nav a {
+      font-size: 14px;
+      color: #4b5563;
+      transition: color 0.15s;
+    }
+    .header-nav a:hover { color: #1f2937; }
+    .header-right {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .header-avatar {
+      width: 32px;
+      height: 32px;
+      background: #6366F1;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Main */
+    .main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 32px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      width: 100%;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      text-align: center;
+    }
+    .empty-illustration {
+      width: 160px;
+      height: 120px;
+      background: #f3f4f6;
+      border-radius: 12px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-illustration-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .empty-illustration-inner .line {
+      height: 6px;
+      border-radius: 3px;
+      background: #e5e7eb;
+    }
+    .empty-illustration-inner .line:nth-child(1) { width: 80px; }
+    .empty-illustration-inner .line:nth-child(2) { width: 60px; }
+    .empty-illustration-inner .line:nth-child(3) { width: 40px; }
+    .empty-heading {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+    .empty-subtext {
+      font-size: 14px;
+      color: #9ca3af;
+      margin-bottom: 28px;
+    }
+    .btn-primary {
+      background: #6366F1;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo">P</div>
+      <span class="header-title">Pipeline</span>
+    </div>
+    <nav class="header-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="#">Docs</a>
+    </nav>
+    <div class="header-right">
+      <div class="header-avatar">AJ</div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title">Flows</h1>
+    </div>
+
+    <div class="empty-state">
+      <div class="empty-illustration">
+        <div class="empty-illustration-inner">
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+        </div>
+      </div>
+      <h2 class="empty-heading">No flows yet</h2>
+      <p class="empty-subtext">Start your first recording to begin</p>
+      <a href="new-recording.html" class="btn-primary">Start Recording</a>
+    </div>
+  </main>
+</body>
+</html>
