@@ -1,0 +1,240 @@
+{
+  "runId": "2026-04-17T09:32:52.166Z",
+  "event": {
+    "name": "GP E2E Test 20260417",
+    "id": "1776417949185x800633791145312300",
+    "url": "https://8countlogin.com/version-81rkv/event/gp-e2e-test-20260417-2026",
+    "eventDetailId": "1776418139762x962283764038500400"
+  },
+  "ticketTypes": {
+    "Standard": {
+      "id": "1776419339323x428518435079585800",
+      "price": 50,
+      "serviceFee": 2,
+      "quantity": 100
+    },
+    "Premium": {
+      "id": "1776419371839x462960754558238700",
+      "price": 100,
+      "serviceFee": 2,
+      "quantity": 50
+    },
+    "Standard Unlimited": {
+      "id": "1776419379088x139852243156598780",
+      "price": 50,
+      "serviceFee": 2,
+      "quantity": null
+    },
+    "Premium Unlimited": {
+      "id": "1776419386488x184532913130307600",
+      "price": 100,
+      "serviceFee": 2,
+      "quantity": null
+    }
+  },
+  "promotions": {
+    "FLAT10": {
+      "id": "1776419773803x700556304319774700",
+      "type": "Discount Amount",
+      "value": 10
+    },
+    "PCT20": {
+      "id": "1776419847537x787038935197417500",
+      "type": "Discount Percentage",
+      "value": 0.2
+    },
+    "PCT100": {
+      "id": "1776419895637x710037282430910500",
+      "type": "Discount Percentage",
+      "value": 1
+    },
+    "FLAT1000": {
+      "id": "1776419906721x614744630155018200",
+      "type": "Discount Amount",
+      "value": 1000
+    }
+  },
+  "customFees": {
+    "Tax": {
+      "id": "1776418903012x456946720041861100",
+      "type": "Percentage",
+      "amount": 0.065,
+      "isTax": true,
+      "isRevenue": false
+    }
+  },
+  "guestUsers": [
+    {
+      "id": "A",
+      "email": "e2e.usera@testmail.com",
+      "password": "Test123!"
+    },
+    {
+      "id": "B",
+      "email": "e2e.userb@testmail.com",
+      "password": "Test123!"
+    },
+    {
+      "id": "C",
+      "email": "abhjoseph+userc@gmail.com",
+      "password": "Test123!"
+    },
+    {
+      "id": "D",
+      "email": "abhjoseph+userd@gmail.com",
+      "password": "Test123!"
+    },
+    {
+      "id": "E",
+      "email": "abhjoseph+usere@gmail.com",
+      "password": "Test123!"
+    },
+    {
+      "id": "F",
+      "email": "abhjoseph+userf@gmail.com",
+      "password": "Test123!"
+    }
+  ],
+  "orders": [
+    {
+      "orderNumber": 1,
+      "orderId": "1776420450229x930453215769526300",
+      "tickets": "Standard×3",
+      "promo": "None",
+      "checkout": "Guest"
+    },
+    {
+      "orderNumber": 2,
+      "orderId": "1776420762528x631257372246409200",
+      "tickets": "Premium×4",
+      "promo": "None",
+      "checkout": "Guest"
+    },
+    {
+      "orderNumber": 3,
+      "orderId": "1776421023152x795741237268185100",
+      "tickets": "Std+Prem 3+2",
+      "promo": "None",
+      "checkout": "Guest"
+    },
+    {
+      "orderNumber": 4,
+      "orderId": "1776422901358x158336045676757000",
+      "tickets": "StdUnlim×5",
+      "promo": "None",
+      "checkout": "Guest-SpecialChars"
+    },
+    {
+      "orderNumber": 5,
+      "orderId": "1776423347416x297777063775698940",
+      "tickets": "PremUnlim×4",
+      "promo": "None",
+      "checkout": "Guest-SpecialChars"
+    },
+    {
+      "orderNumber": 6,
+      "orderId": "1776424722147x543016304666738700",
+      "tickets": "Standard×5",
+      "promo": "FLAT10",
+      "checkout": "LoggedIn-UserA"
+    },
+    {
+      "orderNumber": 7,
+      "orderId": "1776425639216x499750114394374140",
+      "tickets": "Premium×3",
+      "promo": "PCT20",
+      "checkout": "LoggedIn-UserA"
+    },
+    {
+      "orderNumber": 8,
+      "orderId": "1776426864916x351960422565806100",
+      "tickets": "Std+Prem 4+3",
+      "promo": "FLAT10",
+      "checkout": "LoggedIn-UserA-SpecialChars"
+    },
+    {
+      "orderNumber": 9,
+      "orderId": "1776427079689x522027021385072600",
+      "tickets": "StdUnlim+Prem 3+2",
+      "promo": "PCT20",
+      "checkout": "LoggedIn-UserB"
+    },
+    {
+      "orderNumber": 10,
+      "orderId": "1776427272750x670198089245261800",
+      "tickets": "PremUnlim+Std 2+4",
+      "promo": "FLAT10",
+      "checkout": "LoggedIn-UserB"
+    },
+    {
+      "orderNumber": 11,
+      "orderId": "1776427381782x846219961618661400",
+      "tickets": "Standard×3",
+      "promo": "PCT100",
+      "checkout": "Guest-ZeroTicket"
+    },
+    {
+      "orderNumber": 12,
+      "orderId": "1776427559524x812385691512864800",
+      "tickets": "Premium×2",
+      "promo": "FLAT1000",
+      "checkout": "Guest-TrueZero"
+    },
+    {
+      "orderNumber": 13,
+      "orderId": "1776427708023x456314246828916740",
+      "tickets": "Std+PremUnlim 3+3",
+      "promo": "None",
+      "checkout": "GuestRegister-UserD"
+    },
+    {
+      "orderNumber": 14,
+      "orderId": "1776428224405x309418715561066500",
+      "tickets": "Premium×5",
+      "promo": "PCT20",
+      "checkout": "GuestRegister-UserE-SpecialChars"
+    },
+    {
+      "orderNumber": 15,
+      "orderId": "1776501980384x300068022905995260",
+      "tickets": "StdUnlim×4",
+      "promo": "FLAT10",
+      "checkout": "GuestRegister-UserF"
+    },
+    {
+      "orderNumber": 16,
+      "orderId": "1776503989045x635462546459721700",
+      "tickets": "Standard×3",
+      "promo": "None",
+      "checkout": "GuestLoginTopRight-UserC"
+    },
+    {
+      "orderNumber": 17,
+      "orderId": "1776504346980x950051930209517600",
+      "tickets": "Std+Prem+StdUnlim 2+2+3",
+      "promo": "PCT20",
+      "checkout": "GuestLoginTopRight-UserC-SpecialChars"
+    },
+    {
+      "orderNumber": 18,
+      "orderId": "1776504458882x454562147486924800",
+      "tickets": "PremUnlim×5",
+      "promo": "FLAT10",
+      "checkout": "RegisterLogin-UserA"
+    },
+    {
+      "orderNumber": 19,
+      "orderId": "1776504541564x374157063452098560",
+      "tickets": "All4Types 2+2+3+2",
+      "promo": "PCT100",
+      "checkout": "RegisterLogin-UserB-SpecialChars"
+    },
+    {
+      "orderNumber": 20,
+      "orderId": "1776504655212x698264746782883800",
+      "tickets": "Std+PremUnlim 4+3",
+      "promo": "FLAT1000",
+      "checkout": "LoggedIn-UserB-TrueZero"
+    }
+  ]
+}

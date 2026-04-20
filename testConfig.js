@@ -15,6 +15,9 @@ const RUN_REPORTING_DAILY_TESTS = true;
 /** Set to false to skip refund tests */
 const RUN_REFUND_TESTS = false;
 
+/** Set to false to skip E2E GP portal tests */
+const RUN_E2E_TESTS = true;
+
 /** Primary entity ID - used to fetch the record(s) this suite validates. Set after placing an order (copy from Bubble DB). */
 const ORDER_ID = "1775018761897x109834756373872640";
 
@@ -53,6 +56,7 @@ module.exports = {
   RUN_ORDER_TESTS,
   RUN_REPORTING_DAILY_TESTS,
   RUN_REFUND_TESTS,
+  RUN_E2E_TESTS,
   ORDER_ID,
   ORDER_IDS,
   REFUND_TRANSACTION_ID,
