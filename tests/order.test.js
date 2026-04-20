@@ -161,21 +161,24 @@ beforeAll(async () => {
   });
 
   it("validates processing fee revenue", () => {
+    // Bubble omits this field entirely on $0 orders — treat missing as 0
+    const stored = Number(order["Processing Fee Revenue"]) || 0;
     testResultsLogger.step("Calculated processing fee revenue", {
       orderId: order._id,
       calculated: result.processingFeeRevenue,
-      stored: order["Processing Fee Revenue"]
+      stored
     });
-    expect(order["Processing Fee Revenue"]).toBeCloseTo(result.processingFeeRevenue, 2);
+    expect(stored).toBeCloseTo(result.processingFeeRevenue, 2);
   });
 
   it("validates processing fee deduction", () => {
+    const stored = Number(order["Processing Fee Deduction"]) || 0;
     testResultsLogger.step("Calculated processing fee deduction (stripe)", {
       orderId: order._id,
       calculated: result.stripeDeduction,
-      stored: order["Processing Fee Deduction"]
+      stored
     });
-    expect(order["Processing Fee Deduction"]).toBeCloseTo(result.stripeDeduction, 2);
+    expect(stored).toBeCloseTo(result.stripeDeduction, 2);
   });
 
   it("validates custom fees", () => {
