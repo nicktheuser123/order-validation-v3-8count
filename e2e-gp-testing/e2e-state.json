@@ -63,6 +63,11 @@
       "isRevenue": false
     }
   },
+  "setupUsers": {
+    "A": "pending",
+    "B": "pending",
+    "C": "pending"
+  },
   "guestUsers": [
     {
       "id": "A",

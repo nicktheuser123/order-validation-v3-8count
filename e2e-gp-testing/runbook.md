@@ -54,8 +54,10 @@ Create a fully configured event with processing fees disabled, a 6.5% tax custom
 Create orders covering the permutation matrix defined in `PLAN-v1.md` § 3.4.
 
 Before starting:
-- If `flow.mode` is `"orders-only"`, run `npm run e2e:preflight` and only proceed on exit 0.
+- If `flow.mode` is `"orders-only"`, run `npm run e2e:preflight` and only proceed on exit 0. Preflight closes any leftover `playwright-cli` sessions and, if `flow.resetOrdersOnRun` is true, resets `state.setupUsers` to `"pending"` for A/B/C.
 - If `flow.resetOrdersOnRun` is `true`, set `state.orders = []` in `e2e-state.json` before the first purchase.
+- **Spawn 3 parallel setup agents first** (Setup-A, Setup-B, Setup-C) on sessions `gp-setup-{A,B,C}` to sign up Users A/B/C. Skip any whose `state.setupUsers.<id>` is already `"done"`. Wait for all three flags to be `"done"` before spawning order workers.
+- Then spawn up to 13 order worker agents in parallel per the Agent Split below. Each worker owns its sessions (`gp-order-NN`) and runs multiple orders sequentially only if it's an Owner-A/B/C agent.
 - Iterate only the order numbers listed in `flow.ordersToRun`; if it's empty, iterate all 20.
 
 ### Checkout Flows
@@ -74,17 +76,37 @@ All login and signup MUST use the popup triggered by the "Login" link in the top
 - To create a new account: click "SIGN UP" in the popup → fill registration form
 - The "REGISTER & SAVE INFO" button at checkout step 1 also creates an account during purchase
 
-### Agent Split
+### Agent Split (max-parallelism, user-ownership model)
 
-- **Agent 2a**: Guest checkout orders (#1-5, #11, #12) — no accounts needed
-- **Agent 2b**: Logged-in + Guest->Register (#6-10, #13-15, #20) — create Users A+B first via signup, Users D/E/F created during Guest->Register flow
-- **Agent 2c**: Guest->Login + Register->Login (#16-19) — create User C first, reuse Users A+B for Register->Login flow
+**Session contract (critical):** every `playwright-cli` invocation MUST include `-s=<name>`. The default (unnamed) session is forbidden during Phase 2 — two agents sharing it would land on the same Bubble cookies and collide. See PLAN-v1.md §3.6 for the full topology; summary:
+
+**Pre-phase — 3 parallel setup agents** (only if `state.setupUsers.<id> !== "done"`):
+- **Setup-A** (`-s=gp-setup-A`): sign up User A via the event ticket page popup → on success set `state.setupUsers.A = "done"`
+- **Setup-B** (`-s=gp-setup-B`): same for User B
+- **Setup-C** (`-s=gp-setup-C`): same for User C
+
+Parent agent waits for all three `state.setupUsers` flags to flip to `"done"` before launching the order phase.
+
+**Order phase — 13 worker agents** (parent launches all simultaneously):
+- **7 guest workers** — one per order: Guest-01..05, Guest-11, Guest-12 (sessions `gp-order-01` … `gp-order-12`). No user gating.
+- **Owner-A** — processes #6, #7, #8, #18 sequentially using sessions `gp-order-06`, `gp-order-07`, `gp-order-08`, `gp-order-18` (open/close a fresh named session per order; do NOT reuse one session across multiple orders). Gated on `state.setupUsers.A == "done"`.
+- **Owner-B** — same pattern for #9, #10, #19, #20. Gated on `state.setupUsers.B`.
+- **Owner-C** — #16, #17. Gated on `state.setupUsers.C`.
+- **Register-D/E/F** — one worker each for #13, #14, #15 (Guest→Register flow creates Users D/E/F mid-checkout). Sessions `gp-order-13/14/15`.
+
+This gives 13 concurrent Chrome contexts at peak and avoids any cross-agent user lock — each shared user (A/B/C) is processed by exactly one owning agent that serializes its own queue.
 
 ### Purchase Process (General)
 
-**One order at a time. Close the browser completely between orders.**
+**Every order runs in its own named session `gp-order-NN` where NN is the zero-padded order number.** Never use the default session; never reuse a session across orders.
 
-1. Open event URL in a fresh browser session
+Per-order lifecycle:
+- `playwright-cli -s=gp-order-NN open <eventUrl> --headed` — fresh isolated context
+- All subsequent interactions use the same `-s=gp-order-NN` prefix
+- `playwright-cli -s=gp-order-NN close` at the end
+- `playwright-cli -s=gp-order-NN delete-data` as cleanup (no-op for in-memory profiles, cheap safety)
+
+1. `playwright-cli -s=gp-order-NN open <eventUrl> --headed` — fresh named session
 2. If logging in: click "Login" in top-right → fill credentials in popup → LOG IN
 3. Find and click "Tickets" button
 4. For each ticket type, click "ADD" next to the matching ticket name the required number of times
@@ -99,7 +121,7 @@ All login and signup MUST use the popup triggered by the "Login" link in the top
 13. Click "PAY NOW" — the button is greyed out until the toggle is ON
 14. **Authorize.net page**: Wait for the payment form to load (~5-10s). Fill: Card Number, Exp Date, Card Code, Last Name, Zip, Address, City, State. Click "Pay" → wait for confirmation → click "Continue"
 15. **Success** = "Purchase Completed!" heading on the return page
-16. Close the browser
+16. `playwright-cli -s=gp-order-NN close` then `playwright-cli -s=gp-order-NN delete-data`
 17. Verify via Bubble API and record the order ID in `e2e-state.json`
 
 ### For $0 Orders (#11, #12, #19, #20)
@@ -151,11 +173,16 @@ _Updated after each run. Add issues encountered and how to avoid them._
 - After filling fields in a popup, take a fresh snapshot before querying refs — the snapshot tree is stale after interactions
 
 ### Browser Session Management
-- **One browser per order.** Close the browser completely between orders. Never reuse sessions across orders — it causes tab/state pollution
-- **Never open new tabs.** If a new tab opens accidentally (e.g. clicking a link), close it immediately with `playwright-cli tab-close`
+- **Every command uses `-s=<name>`.** The default (unnamed) session is forbidden during Phase 2. Order workers use `-s=gp-order-NN`; setup agents use `-s=gp-setup-{A,B,C}`. Two agents sharing the default session will land on the same Bubble cookies, the last-created order will echo into every tab, and follow-up purchases will be blocked by "in-progress order" checks
+- **One named session per order.** Close + `delete-data` the session when the order finishes. Never reuse one `gp-order-NN` across two orders
+- **Never open new tabs.** If a new tab opens accidentally (e.g. clicking a link), close it immediately with `playwright-cli -s=gp-order-NN tab-close`
 - **Never navigate to separate login pages.** All auth happens via the popup on the ticket page
-- **Log out after any EP admin work.** The browser shares sessions — if you were logged in as Event Producer in the GP admin, that session carries over. Always log out before starting a guest/user purchase flow. Navigate to the event page fresh after logging out
-- **Between different user logins**: close the browser entirely and open a fresh one. Do not try to log out and log in as a different user in the same session
+- **Log out after any EP admin work** performed in the same named session. (Normally this is impossible under the contract — EP admin and order work live in different session names. If they ever share, log out before reusing.)
+- **Between different user logins within one agent's queue** (e.g. Owner-A rolling from order #6 to order #7): always close the previous `gp-order-NN` session fully, then open a new `gp-order-MM` with the next order's number. Do not log out and log in within one named session
+
+### Snapshot Hygiene
+- **Do not save manual snapshot copies.** `playwright-cli` already auto-saves every snapshot to `.playwright-cli/page-<timestamp>.yml`. Never write files like `orderN-stepN.yml` to the repo root — the accessibility-tree refs inside (`[ref=eXX]`) are session-scoped and die the moment the browser closes, so these files have no replay value and just pollute the tree
+- If you genuinely need to capture a specific snapshot for later reference, read `.playwright-cli/page-<timestamp>.yml` directly instead of duplicating it
 
 ### Bubble App Behavior
 - Use `domcontentloaded` not `networkidle` for waits — Bubble has persistent polling that prevents networkidle from resolving

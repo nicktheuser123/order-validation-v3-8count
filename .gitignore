@@ -13,6 +13,9 @@ test-results.md
 .jest-test-steps.json
 e2e-gp-testing/results/
 .playwright-cli/
+# Playwright accessibility-tree snapshots auto-saved to .playwright-cli/;
+# never commit manual copies an agent may have piped to the repo root.
+order*-*.yml
 
 # IDE and editor files
 .vscode/

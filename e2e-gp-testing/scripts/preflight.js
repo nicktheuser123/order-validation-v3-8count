@@ -9,10 +9,14 @@
 
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 
 const ROOT = path.join(__dirname, "..");
 const SETTINGS_PATH = path.join(ROOT, "settings.json");
 const STATE_PATH = path.join(ROOT, "e2e-state.json");
+
+const ORDER_SESSION_COUNT = 20;
+const SETUP_SESSIONS = ["gp-setup-A", "gp-setup-B", "gp-setup-C"];
 
 function fail(msg) {
   console.error(`[preflight] FAIL — ${msg}`);
@@ -26,6 +30,32 @@ function readJson(p, label) {
   } catch (err) {
     fail(`${label} is not valid JSON: ${err.message}`);
   }
+}
+
+function silentRun(cmd) {
+  try {
+    execSync(cmd, { stdio: "pipe" });
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
+function cleanupPlaywrightSessions() {
+  if (!silentRun("command -v playwright-cli")) {
+    console.log("[preflight] skipping playwright-cli cleanup — binary not on PATH");
+    return;
+  }
+  silentRun("playwright-cli close-all");
+  const sessions = [];
+  for (let n = 1; n <= ORDER_SESSION_COUNT; n++) {
+    sessions.push(`gp-order-${String(n).padStart(2, "0")}`);
+  }
+  sessions.push(...SETUP_SESSIONS);
+  for (const s of sessions) {
+    silentRun(`playwright-cli -s=${s} delete-data`);
+  }
+  console.log(`[preflight] cleaned playwright-cli sessions (close-all + delete-data for ${sessions.length} named sessions)`);
 }
 
 const settings = readJson(SETTINGS_PATH, "settings.json");
@@ -68,6 +98,14 @@ for (const n of ordersToRun) {
     fail(`flow.ordersToRun contains invalid entry ${JSON.stringify(n)} — must be integers in [1, 20]`);
   }
 }
+
+if (settings.flow && settings.flow.resetOrdersOnRun) {
+  state.setupUsers = { A: "pending", B: "pending", C: "pending" };
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n", "utf8");
+  console.log("[preflight] resetOrdersOnRun=true — reset setupUsers to pending");
+}
+
+cleanupPlaywrightSessions();
 
 const subsetMsg = ordersToRun.length > 0 ? `orders [${ordersToRun.join(", ")}]` : "all 20 orders";
 console.log(`[preflight] OK — event "${event.name || event.id}" ready for ${subsetMsg}`);

@@ -171,9 +171,16 @@ describe("E2E Order Validation", () => {
   });
 
   it("validates discount amount for all orders", () => {
+    const failures = [];
     for (const { orderId, order, result, promotion } of orderData) {
-      testResultsLogger.step("Discount amount", { orderId, promotion: promotion ? promotion._id : null, calculated: result.discountTotal, stored: order["Discount Amount"] });
-      expect(order["Discount Amount"]).toBeCloseTo(result.discountTotal, 2);
+      const stored = Number(order["Discount Amount"]) || 0;
+      testResultsLogger.step("Discount amount", { orderId, promotion: promotion ? promotion._id : null, calculated: result.discountTotal, stored });
+      if (Math.abs(stored - result.discountTotal) > 0.005) {
+        failures.push(`  ${orderId}: stored=${stored}, calc=${result.discountTotal}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`${failures.length}/${orderData.length} orders failed discount amount:\n${failures.join("\n")}`);
     }
   });
 
@@ -185,9 +192,16 @@ describe("E2E Order Validation", () => {
   });
 
   it("validates total order value for all orders", () => {
+    const failures = [];
     for (const { orderId, order, result } of orderData) {
-      testResultsLogger.step("Total order value", { orderId, calculated: result.totalOrderValue, stored: order["Total Order Value"] });
-      expect(order["Total Order Value"]).toBeCloseTo(result.totalOrderValue, 2);
+      const stored = Number(order["Total Order Value"]) || 0;
+      testResultsLogger.step("Total order value", { orderId, calculated: result.totalOrderValue, stored });
+      if (Math.abs(stored - result.totalOrderValue) > 0.005) {
+        failures.push(`  ${orderId}: stored=${stored}, calc=${result.totalOrderValue}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`${failures.length}/${orderData.length} orders failed total order value:\n${failures.join("\n")}`);
     }
   });
 
@@ -209,10 +223,16 @@ describe("E2E Order Validation", () => {
   });
 
   it("validates custom fees for all orders", () => {
+    const failures = [];
     for (const { orderId, orderFees, result } of orderData) {
       const storedCustomFees = roundTo2(orderFees.reduce((sum, f) => sum + roundTo2(Number(f["GP_OrderFee Amt"]) || 0), 0));
       testResultsLogger.step("Custom fees", { orderId, orderFeeCount: orderFees.length, storedSum: storedCustomFees, calculated: result.totalCustomFees });
-      expect(storedCustomFees).toBeCloseTo(result.totalCustomFees, 2);
+      if (Math.abs(storedCustomFees - result.totalCustomFees) > 0.005) {
+        failures.push(`  ${orderId}: stored=${storedCustomFees}, calc=${result.totalCustomFees}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`${failures.length}/${orderData.length} orders failed custom fees:\n${failures.join("\n")}`);
     }
   });
 

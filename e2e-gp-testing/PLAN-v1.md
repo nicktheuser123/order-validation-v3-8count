@@ -255,13 +255,48 @@ Use variations of: `'`, `"`, `<`, `>`, `&`, `\`, `/`, `{`, `}`, `[`, `]`
 - Order #18 → logs in as User A
 - Order #19 → logs in as User B
 
-### 3.6 Parallel Agent Split
+### 3.6 Parallel Agent Split (max-parallelism, user-ownership model)
 
-| Sub-Agent | Orders | Scope |
-|-----------|--------|-------|
-| **Agent 2a** | #1-5, #11, #12 | Pure guest checkout (7 orders, no account needed) |
-| **Agent 2b** | #6-10, #13-15, #20 | Logged-in + Guest→Register (9 orders, create Users A+B first, Users D/E/F created during flow) |
-| **Agent 2c** | #16-19 | Guest→Login + Register→Login (4 orders, create User C first, reuse A+B for register→login) |
+**Session contract.** Every `playwright-cli` command an agent issues during Phase 2 MUST include `-s=<name>` — the default (unnamed) session is forbidden. Two agents sharing the default session land on the same Bubble cookies and collide (last-created order echoes into every tab; follow-up purchases get blocked by the "in-progress order" check). See `.claude/skills/playwright-cli/references/session-management.md` for the isolation guarantees of named sessions.
+
+**Session naming.**
+- Order workers use `-s=gp-order-NN` (zero-padded order number).
+- Setup agents use `-s=gp-setup-A`, `-s=gp-setup-B`, `-s=gp-setup-C`.
+- Owner agents running multiple orders sequentially open a fresh `gp-order-NN` per order — **do not reuse one session across orders**.
+
+**Pre-phase — 3 parallel setup agents** (~60-90s, skip any whose `state.setupUsers.<id>` is already `"done"`):
+
+| Setup agent | Session | Work |
+|---|---|---|
+| **Setup-A** | `gp-setup-A` | Open event URL, click Login → SIGN UP, fill registration with User A creds from `settings.guestUsers[0]`, confirm the account is created, set `state.setupUsers.A = "done"`, close session |
+| **Setup-B** | `gp-setup-B` | Same pattern for User B |
+| **Setup-C** | `gp-setup-C` | Same pattern for User C |
+
+All three run concurrently. The parent agent waits for all three `state.setupUsers` flags to flip to `"done"` before spawning the order phase. If `flow.resetOrdersOnRun` is true, preflight already reset the flags to `"pending"`.
+
+**Order phase — 13 worker agents** (parent launches all at once; owner agents internally serialize their queues):
+
+| Agent | Session(s) | Orders (sequential if multiple) | Gate |
+|---|---|---|---|
+| Guest-01 | `gp-order-01` | #1 | — |
+| Guest-02 | `gp-order-02` | #2 | — |
+| Guest-03 | `gp-order-03` | #3 | — |
+| Guest-04 | `gp-order-04` | #4 | — |
+| Guest-05 | `gp-order-05` | #5 | — |
+| Guest-11 | `gp-order-11` | #11 ($0) | — |
+| Guest-12 | `gp-order-12` | #12 ($0) | — |
+| Owner-A | `gp-order-06` → `gp-order-07` → `gp-order-08` → `gp-order-18` | #6, #7, #8, #18 | `state.setupUsers.A == "done"` |
+| Owner-B | `gp-order-09` → `gp-order-10` → `gp-order-19` → `gp-order-20` | #9, #10, #19, #20 | `state.setupUsers.B == "done"` |
+| Owner-C | `gp-order-16` → `gp-order-17` | #16, #17 | `state.setupUsers.C == "done"` |
+| Register-D | `gp-order-13` | #13 (Guest→Register creates User D) | — |
+| Register-E | `gp-order-14` | #14 (Guest→Register creates User E) | — |
+| Register-F | `gp-order-15` | #15 (Guest→Register creates User F) | — |
+
+**Why this topology.** Bubble's server-side state for a logged-in user includes the in-progress cart. Two simultaneous sessions logged in as the same user (e.g. User A) would collide on that server state regardless of client-side cookie isolation. Owner-A/B/C each processes its shared user's orders serially inside one worker, which removes the need for any cross-agent mutex. Guest and Register-D/E/F orders have no user contention and each get their own worker. Peak concurrency: 13 browser contexts; the long pole is Owner-A / Owner-B at 4 sequential orders each.
+
+**Coordination surface** — still `e2e-state.json`, no new infrastructure:
+- `state.setupUsers = { A, B, C }` with values `"pending"` / `"done"` — gate for Owner agents
+- `state.orders = [...]` — every agent appends `{ orderNumber, orderId, tickets, promo, checkout }` on completion (unchanged)
 
 Each agent appends completed order IDs to `e2e-state.json`. For $0 orders (#11, #12, #19, #20): the payment step may be skipped entirely or show $0 — the agent should handle both cases and verify the order still completes (confirmation screen or "purchase complete" popup).
 
