@@ -1,13 +1,24 @@
-# E2E GP Portal — Runbook for LLM Sub-Agents
+# E2E GP Portal — Runbook for LLM Agent
+
+## Mode Router (read this first)
+
+Read `settings.json` → `flow.mode`:
+
+- `"full"` — run all phases. Use `eventCreation.name / startDate / endDate` to create a fresh event, configure it (Phase 1), then place purchases (Phase 2) and verify (Phase 3).
+- `"orders-only"` — skip Phase 1 entirely. Run `npm run e2e:preflight` first; if it exits 0, the existing event in `e2e-state.json` is reusable. Proceed straight to Phase 2 with `state.event.url` as the target.
+- `"verify-only"` — skip Phases 1 and 2. Jump directly to `npm test -- e2e-gp-testing/tests/e2eOrder.test.js`.
+
+Subset and append control:
+
+- `flow.ordersToRun` — if a non-empty array of order numbers (e.g. `[7, 9]`), iterate only those rows from the 20-row matrix in Phase 2. Empty array = run all 20.
+- `flow.resetOrdersOnRun` — if `true`, overwrite `state.orders` with `[]` before the first purchase so validation only sees the orders from this run. Default `false` (append).
 
 ## Quick Re-Run Guide (TL;DR)
 
-If you're starting a fresh run:
-
-1. Read `settings.json` for all config values
-2. Ensure the `testConfig.js` has the E2E test flag enabled and that the event's 4 promotions are **assigned to all 4 ticket types** via the GP admin "Assigned Promotions" tab (failure to do this = "Invalid coupon code" at checkout)
+1. Read `settings.json` for all config values and pick a `flow.mode`
+2. Ensure `testConfig.js` has the E2E test flag enabled and that the event's 4 promotions are **assigned to all 4 ticket types** via the GP admin "Assigned Promotions" tab (failure to do this = "Invalid coupon code" at checkout)
 3. Verify promotion percentages via `PATCH /api/1.1/obj/gp_promotion/<id>` if the UI saved them wrong (percentage field is buggy)
-4. Start with Phase 2 (event setup) or Phase 3 (purchases against existing event)
+4. Follow the Mode Router above
 5. Run `npm test -- --testPathPattern=e2e-gp-testing` after all orders are placed
 6. Expected results: 41/42 Jest tests pass. The single known failure is a $0.01 rounding difference on custom fees
 
@@ -19,14 +30,16 @@ If you're starting a fresh run:
 4. **This guide describes WHAT to do, not HOW to click** — figure out selectors on the fly using snapshots
 5. **Record all IDs in `e2e-state.json`** — this is how agents coordinate
 
-## Phase 1: Event Setup (Single Agent)
+## Phase 1: Event Setup
+
+**Skip this phase entirely if `flow.mode` is `"orders-only"` or `"verify-only"`.**
 
 ### Goal
 Create a fully configured event with processing fees disabled, a 6.5% tax custom fee, 4 ticket types, and 4 promotions.
 
 ### Steps
 
-1. **Create event** — Use `/createEvent` skill or `playwright-cli` manually. Event name and dates come from `settings.json`
+1. **Create event** — Use `/createEvent` skill or `playwright-cli` manually. Event name and dates come from `settings.eventCreation` (`name`, `startDate`, `endDate`)
 2. **Navigate to Guest Portal admin** — From the eventproducer page, find the "Guest Portal" tab on the left sidebar. This goes to `gp-guestportal-admin`
 3. **Find the event** in the GP admin and open its settings
 4. **Configure processing fee** — Set "Do not pass to customers" = YES (disables processing fee for customers)
@@ -35,10 +48,15 @@ Create a fully configured event with processing fees disabled, a 6.5% tax custom
 7. **Create 4 promotions** per `settings.json` promotions array
 8. **Extract all IDs** via Buildprint MCP `search_data` and write to `e2e-state.json`
 
-## Phase 2: Ticket Purchases (3 Parallel Agents)
+## Phase 2: Ticket Purchases
 
 ### Goal
-Create 20 orders covering all permutations of ticket types, quantities, discounts, and checkout flows.
+Create orders covering the permutation matrix defined in `PLAN-v1.md` § 3.4.
+
+Before starting:
+- If `flow.mode` is `"orders-only"`, run `npm run e2e:preflight` and only proceed on exit 0.
+- If `flow.resetOrdersOnRun` is `true`, set `state.orders = []` in `e2e-state.json` before the first purchase.
+- Iterate only the order numbers listed in `flow.ordersToRun`; if it's empty, iterate all 20.
 
 ### Checkout Flows
 

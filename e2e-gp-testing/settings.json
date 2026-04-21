@@ -5,11 +5,14 @@
     "password": "123"
   },
   "flow": {
-    "mode": "full",
-    "eventName": "GP E2E Test 20260417",
-    "existingEventId": "",
-    "eventStartDate": "7/16/2026",
-    "eventEndDate": "7/18/2026"
+    "mode": "orders-only",
+    "ordersToRun": [],
+    "resetOrdersOnRun": true
+  },
+  "eventCreation": {
+    "name": "GP E2E Test 20260417",
+    "startDate": "7/16/2026",
+    "endDate": "7/18/2026"
   },
   "browser": {
     "headed": true
@@ -25,16 +28,56 @@
     "state": "NY"
   },
   "ticketTypes": [
-    { "name": "Standard", "price": 50, "serviceFee": 2, "quantity": 100 },
-    { "name": "Premium", "price": 100, "serviceFee": 2, "quantity": 50 },
-    { "name": "Standard Unlimited", "price": 50, "serviceFee": 2, "quantity": null },
-    { "name": "Premium Unlimited", "price": 100, "serviceFee": 2, "quantity": null }
+    {
+      "name": "Standard",
+      "price": 50,
+      "serviceFee": 2,
+      "quantity": 100
+    },
+    {
+      "name": "Premium",
+      "price": 100,
+      "serviceFee": 2,
+      "quantity": 50
+    },
+    {
+      "name": "Standard Unlimited",
+      "price": 50,
+      "serviceFee": 2,
+      "quantity": null
+    },
+    {
+      "name": "Premium Unlimited",
+      "price": 100,
+      "serviceFee": 2,
+      "quantity": null
+    }
   ],
   "promotions": [
-    { "code": "FLAT10", "type": "Discount Amount", "value": 10, "appliesTo": "Ticket" },
-    { "code": "PCT20", "type": "Discount Percentage", "value": 0.20, "appliesTo": "Ticket" },
-    { "code": "PCT100", "type": "Discount Percentage", "value": 1.00, "appliesTo": "Ticket" },
-    { "code": "FLAT1000", "type": "Discount Amount", "value": 1000, "appliesTo": "Ticket" }
+    {
+      "code": "FLAT10",
+      "type": "Discount Amount",
+      "value": 10,
+      "appliesTo": "Ticket"
+    },
+    {
+      "code": "PCT20",
+      "type": "Discount Percentage",
+      "value": 0.2,
+      "appliesTo": "Ticket"
+    },
+    {
+      "code": "PCT100",
+      "type": "Discount Percentage",
+      "value": 1,
+      "appliesTo": "Ticket"
+    },
+    {
+      "code": "FLAT1000",
+      "type": "Discount Amount",
+      "value": 1000,
+      "appliesTo": "Ticket"
+    }
   ],
   "customFee": {
     "name": "Tax",
@@ -47,12 +90,42 @@
     "passToCustomer": false
   },
   "guestUsers": [
-    { "id": "A", "email": "e2e.usera@testmail.com", "password": "Test123!", "fullName": "Test User A" },
-    { "id": "B", "email": "e2e.userb@testmail.com", "password": "Test123!", "fullName": "Test User B" },
-    { "id": "C", "email": "e2e.userc@testmail.com", "password": "Test123!", "fullName": "Test User C" },
-    { "id": "D", "email": "e2e.userd@testmail.com", "password": "Test123!", "fullName": "Test User D" },
-    { "id": "E", "email": "e2e.usere@testmail.com", "password": "Test123!", "fullName": "Test User E" },
-    { "id": "F", "email": "e2e.userf@testmail.com", "password": "Test123!", "fullName": "Test User F" }
+    {
+      "id": "A",
+      "email": "abhjoseph+usera@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User A"
+    },
+    {
+      "id": "B",
+      "email": "abhjoseph+userb@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User B"
+    },
+    {
+      "id": "C",
+      "email": "abhjoseph+userc@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User C"
+    },
+    {
+      "id": "D",
+      "email": "abhjoseph+userd@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User D"
+    },
+    {
+      "id": "E",
+      "email": "abhjoseph+usere@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User E"
+    },
+    {
+      "id": "F",
+      "email": "abhjoseph+userf@gmail.com",
+      "password": "Test123!",
+      "fullName": "Test User F"
+    }
   ],
   "verification": {
     "waitAfterOrderMs": 30000

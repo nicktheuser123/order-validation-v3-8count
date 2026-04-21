@@ -4,7 +4,8 @@
   "description": "Jest validation framework for the 8count GP portal: single-order suites + 20-order E2E permutation pipeline.",
   "scripts": {
     "test": "jest --config=config/jest.config.js",
-    "test:watch": "jest --watch --config=config/jest.config.js"
+    "test:watch": "jest --watch --config=config/jest.config.js",
+    "e2e:preflight": "node e2e-gp-testing/scripts/preflight.js"
   },
   "keywords": [
     "validation",
