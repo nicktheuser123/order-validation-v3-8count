@@ -1,25 +1,19 @@
 /**
- * Test configuration - dynamically generated based on test suites.
- * Structure defined in TESTING_GUIDE.md. Add keys when adding new test suites.
+ * Test configuration for the Jest validation suites.
+ * Flip RUN_* flags to control which suites execute on `npm test`.
  */
 
-/** Base URL for Playwright recording - where codegen opens the browser */
-const BASE_URL = "https://8countlogin.com/version-81rkv/event/test-event-v81rkv-2026"; // e.g. "https://yourapp.bubbleapps.io"
-
-/** Set to false to skip this test suite */
+/** Set to false to skip single-order validation (tests/order.test.js) */
 const RUN_ORDER_TESTS = true;
 
-/** Set to false to skip reporting daily tests */
+/** Set to false to skip reporting daily aggregates (tests/reportingDaily.test.js) */
 const RUN_REPORTING_DAILY_TESTS = true;
 
-/** Set to false to skip refund tests */
+/** Set to false to skip refund validation (tests/refund.test.js) */
 const RUN_REFUND_TESTS = false;
 
-/** Set to false to skip E2E GP portal tests */
-const RUN_E2E_TESTS = true;
-
-/** Primary entity ID - used to fetch the record(s) this suite validates. Set after placing an order (copy from Bubble DB). */
-const ORDER_ID = "1775018761897x109834756373872640";
+/** Primary GP_Order ID validated by tests/order.test.js. */
+const ORDER_ID = "1776427559524x812385691512864800";
 
 /** GYM_Transaction ID for refund validation */
 const REFUND_TRANSACTION_ID = "1774065658466x817743924321321000";
@@ -27,10 +21,10 @@ const REFUND_TRANSACTION_ID = "1774065658466x817743924321321000";
 /** GP_Order ID linked to the refund transaction */
 const REFUND_ORDER_ID = "1774065658466x817743924321321000";
 
-/** Optional: validate multiple entities. Use empty array if not needed. */
+/** Optional: validate multiple orders. Empty array = use ORDER_ID only. */
 const ORDER_IDS = [];
 
-/** Bubble data type names. Add a key for every type this suite fetches. */
+/** Bubble Data API type names. Editor display name, lowercased, spaces removed. */
 const TYPES = {
   GP_ORDER: "gp_order",
   GP_ADDON: "gp_addon",
@@ -50,13 +44,10 @@ const TYPES = {
   PAYINTENT: "payintent"
 };
 
-
 module.exports = {
-  BASE_URL,
   RUN_ORDER_TESTS,
   RUN_REPORTING_DAILY_TESTS,
   RUN_REFUND_TESTS,
-  RUN_E2E_TESTS,
   ORDER_ID,
   ORDER_IDS,
   REFUND_TRANSACTION_ID,

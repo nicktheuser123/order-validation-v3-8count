@@ -1,23 +1,17 @@
 {
   "name": "order-validation-v3",
   "version": "1.0.0",
-  "description": "Template for building automated tests against Bubble API data. Validate orders, subscriptions, or any data type.",
+  "description": "Jest validation framework for the 8count GP portal: single-order suites + 20-order E2E permutation pipeline.",
   "scripts": {
     "test": "jest --config=config/jest.config.js",
-    "test:watch": "jest --watch --config=config/jest.config.js",
-    "record": "node scripts/playwright-record.js",
-    "audit": "node scripts/audit-recording.js",
-    "flow": "node scripts/run-flow.js",
-    "flow:create-event": "node flows/create-event.flow.js",
-    "pipeline": "node scripts/pipeline-server.js",
-    "test:pipeline": "node scripts/test-pipeline.js"
+    "test:watch": "jest --watch --config=config/jest.config.js"
   },
   "keywords": [
-    "template",
     "validation",
     "bubble",
     "jest",
-    "subscriptions"
+    "8count",
+    "e2e"
   ],
   "author": "",
   "license": "ISC",
@@ -26,11 +20,9 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "dotenv": "^16.3.0",
-    "express": "^5.2.1"
+    "dotenv": "^16.3.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
     "jest": "^29.7.0"
   }
 }

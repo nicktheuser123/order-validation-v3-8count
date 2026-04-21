@@ -1,88 +1,73 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repo.
 
 ## Commands
 
 ```bash
-npm install          # Install dependencies
-npm test             # Run all tests (writes test-results.md)
-npm test -- order.test.js   # Run a single test suite
-npm run test:watch   # Watch mode
-npm run record       # Launch Playwright codegen (saves to recordings/)
+npm install                         # Install dependencies
+npm test                            # Run all enabled suites (writes test-results.md at repo root)
+npm test -- tests/order.test.js     # Run only the single-order suite
+npm test -- e2e-gp-testing/tests/e2eOrder.test.js   # Run the 20-order E2E suite
+npm run test:watch                  # Watch mode
 ```
 
 ## Architecture
 
-This is a Jest-based validation framework for Bubble (no-code) applications. It fetches data from the Bubble Data API and asserts that calculated fields match what the backend computed.
-
-**Data flow:** Test file (`tests/`) fetches from Bubble via `bubbleClient` → passes raw data to a calculator (`lib/`) → asserts calculator output matches API field values.
+Jest-based validation framework for the 8count Bubble app. Test files fetch data from the Bubble Data API via `config/bubbleClient.js`, run pure calculations from `lib/`, and assert that the calculator output matches what Bubble stored.
 
 ### Key files
 
 | File | Role |
 |------|------|
-| `testConfig.js` | Per-suite IDs, flags, and type names. Dynamically generated — add keys when adding suites. |
-| `config/bubbleClient.js` | `getThing(type, id)` and `searchThings(type, constraints)`. Do not modify. |
-| `config/testResultsLogger.js` | Call `step(description, details)` inside `it()` blocks to populate `test-results.md`. |
-| `config/jestMarkdownReporter.js` | Custom Jest reporter; writes `test-results.md` on every run. |
-| `lib/testUtils.js` | `getNum(obj, ...keys)` and `roundTo2(num)`. Do not remove. |
-| `lib/parseBubbleUrl.js` | Derives `appId` and `version` from `BASE_URL` for Buildprint MCP. |
+| `testConfig.js` | Per-suite flags (`RUN_*_TESTS`), order IDs, Bubble `TYPES` map |
+| `config/bubbleClient.js` | `getThing(type, id)` and `searchThings(type, constraints)` |
+| `config/testResultsLogger.js` | Call `step(description, details)` inside `it()` blocks; rows land in the per-order table |
+| `config/jestMarkdownReporter.js` | Writes `test-results.md` — Overview + Per-Order Results + Aggregate + Failures |
+| `lib/testUtils.js` | `getNum(obj, ...keys)` and `roundTo2(num)` |
+| `lib/orderCalculator.js` | Pure order calculation (gross → discount → custom fees → processing) |
+| `lib/refundCalculator.js` | Refund aggregation |
 
-### Per-domain pattern
+### Test suites
 
-Each domain (e.g. `order`) has three files:
-1. `testConfig.js` — `RUN_ORDER_TESTS`, `ORDER_ID`, `ORDER_IDS`, `TYPES.ORDER`
-2. `tests/order.test.js` — fetches data, calls calculator, asserts
-3. `lib/orderCalculator.js` — pure calculation, no API calls
+| Suite | File | What it validates |
+|-------|------|-------------------|
+| Single-order | `tests/order.test.js` | 15 assertions against `ORDER_ID` in `testConfig.js` |
+| Reporting daily | `tests/reportingDaily.test.js` | 24 assertions across daily aggregate records |
+| Refund | `tests/refund.test.js` | 13 assertions against `REFUND_ORDER_ID` |
+| E2E permutation | `e2e-gp-testing/tests/e2eOrder.test.js` | 42 assertions over the 20-order state in `e2e-gp-testing/e2e-state.json` |
+
+The E2E suite is driven by the orchestration documented in `e2e-gp-testing/PLAN-v1.md` + `runbook.md`: Claude sub-agents create an event, run 20 permuted purchases, then the Jest file validates every resulting order.
 
 ### Jest execution order (critical)
 
 The `describe` callback runs **when the file loads**, before `beforeAll`. Never branch on fetched data at describe-definition time.
 
-**Wrong:** `if (items.length === 0)` inside `describe` (evaluates before `beforeAll` runs)
+**Wrong:** `if (items.length === 0)` inside `describe`.
 
-**Right:** Throw in `beforeAll` if the fetched list is empty, then iterate inside `it()` callbacks:
-```javascript
-beforeAll(async () => {
-  items = await searchThings(TYPES.ITEM, constraints);
-  if (items.length === 0) throw new Error("No items found");
-  results = items.map(item => calculateDomain({ item }));
-}, 120000);
+**Right:** throw in `beforeAll` if the fetched list is empty, iterate inside `it()` callbacks.
 
-// No guard test needed; forEach runs after beforeAll
-it("validates all items", () => {
-  items.forEach((item, i) => {
-    expect(getNum(item, "field")).toBe(results[i].field);
-  });
-});
-```
-
-When `beforeAll` throws, Jest marks all tests in the suite as failed with the setup error. No separate guard `it` test is needed.
+When `beforeAll` throws, Jest marks every test in the suite as failed with the setup error — no separate guard `it` needed.
 
 ### Bubble Data API naming
 
-Type names in `TYPES` must be the Bubble editor display name, lowercased with spaces removed (e.g. "Order Item" → `orderitem`). Buildprint MCP internal schema keys (e.g. `cart_items`) are **not** the same as Data API type names.
+Type names in `TYPES` are the Bubble editor display name, lowercased with spaces removed (e.g. "Order Item" → `orderitem`). Buildprint MCP internal schema keys (e.g. `cart_items`) are **not** the same as Data API type names — don't confuse them.
 
 ### Buildprint MCP for verification
 
-When you need to verify Bubble app details (option set values, field names, data type schemas, or actual record data), use the Buildprint MCP tools instead of asking the user. Key tools:
-- `get_json` / `search_json` — explore app schema, option sets, workflows
-- `fetch_data` — fetch actual Bubble records by ID
-- `search_data` — search Bubble data with constraints
+When verifying Bubble app details (option set values, field names, data type schemas, record data), use Buildprint MCP tools:
+- `get_json` / `search_json` — explore schema, option sets, workflows
+- `fetch_data` — fetch records by ID
+- `search_data` — search with constraints
 
-The app ID and version can be derived from `BASE_URL` in `testConfig.js` using `lib/parseBubbleUrl.js`.
+**appId:** `k-8count` | **version:** `81rkv`
 
 ### Environment
 
 Copy `.env.example` to `.env` and set:
-- `BUBBLE_API_BASE` — e.g. `https://yourapp.bubbleapps.io/api/1.1/obj`
+- `BUBBLE_API_BASE` — e.g. `https://8countlogin.com/api/1.1/obj`
 - `BUBBLE_API_TOKEN` — your Bubble API token
 
 ### Test output
 
-`test-results.md` is overwritten on every `npm test` run (gitignored). Use `testResultsLogger.step()` inside each `it()` block with dynamic data (IDs, amounts) to make the report useful for non-coders.
-
-### Full spec
-
-`TESTING_GUIDE.md` is the canonical reference for templates, naming conventions, Buildprint MCP workflow, and AI agent instructions.
+`test-results.md` (at repo root for `tests/` suites, at `e2e-gp-testing/test-results.md` for the E2E suite) is overwritten on every run. Sections: Overview, Per-Order Results (one table per orderId), Aggregate Results, Failures.
