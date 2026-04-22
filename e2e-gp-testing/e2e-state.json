@@ -64,9 +64,9 @@
     }
   },
   "setupUsers": {
-    "A": "pending",
-    "B": "pending",
-    "C": "pending"
+    "A": "done",
+    "B": "done",
+    "C": "done"
   },
   "guestUsers": [
     {
@@ -103,143 +103,143 @@
   "orders": [
     {
       "orderNumber": 1,
-      "orderId": "1776740428533x169551427814293500",
+      "orderId": "1776753336552x598328394763993100",
       "tickets": "Standard×3",
       "promo": "None",
       "checkout": "Guest"
     },
     {
       "orderNumber": 2,
-      "orderId": "1776740714993x737708644027334700",
+      "orderId": "1776753275533x932250071359291400",
       "tickets": "Premium×4",
       "promo": "None",
       "checkout": "Guest"
     },
     {
       "orderNumber": 3,
-      "orderId": "1776740928453x340470192745742340",
-      "tickets": "Std+Prem 3+2",
+      "orderId": "1776753290748x307786495076073500",
+      "tickets": "Standard×3 + Premium×2",
       "promo": "None",
       "checkout": "Guest"
     },
     {
       "orderNumber": 4,
-      "orderId": "1776741148945x960317636581785600",
-      "tickets": "StdUnlim×5",
+      "orderId": "1776753239580x491725293381222400",
+      "tickets": "StandardUnlimited×5",
       "promo": "None",
-      "checkout": "Guest-SpecialChars"
+      "checkout": "Guest"
     },
     {
       "orderNumber": 5,
-      "orderId": "1776741500216x897295036488351700",
-      "tickets": "PremUnlim×4",
+      "orderId": "1776753236052x559729861641371650",
+      "tickets": "Premium Unlimited×4",
       "promo": "None",
-      "checkout": "Guest-SpecialChars"
+      "checkout": "Guest"
     },
     {
       "orderNumber": 6,
-      "orderId": "1776741791881x890643999240224800",
+      "orderId": "1776753368671x434748374817177600",
       "tickets": "Standard×5",
       "promo": "FLAT10",
-      "checkout": "LoggedIn-UserA"
+      "checkout": "Logged-in A"
     },
     {
       "orderNumber": 7,
-      "orderId": "1776742182723x961138994241863700",
+      "orderId": "1776753834667x243993335644291070",
       "tickets": "Premium×3",
       "promo": "PCT20",
-      "checkout": "LoggedIn-UserA"
+      "checkout": "Logged-in A"
     },
     {
       "orderNumber": 8,
-      "orderId": "1776742392220x415937878806233100",
-      "tickets": "Std+Prem 4+3",
+      "orderId": "1776754082625x492753557568618500",
+      "tickets": "Standard×4+Premium×3",
       "promo": "FLAT10",
-      "checkout": "LoggedIn-UserA-SpecialChars"
+      "checkout": "Logged-in A"
     },
     {
       "orderNumber": 9,
-      "orderId": "1776742651022x902877164648005600",
-      "tickets": "StdUnlim+Prem 3+2",
+      "orderId": "1776753385604x806279542574415900",
+      "tickets": "Standard Unlimited×3 + Premium×2",
       "promo": "PCT20",
-      "checkout": "LoggedIn-UserB"
+      "checkout": "Logged-in (User B)"
     },
     {
       "orderNumber": 10,
-      "orderId": "1776742986554x852708034430632000",
-      "tickets": "PremUnlim+Std 2+4",
+      "orderId": "1776753820799x221217635339599870",
+      "tickets": "Premium Unlimited×2 + Standard×4",
       "promo": "FLAT10",
-      "checkout": "LoggedIn-UserB"
+      "checkout": "Logged-in (User B)"
     },
     {
       "orderNumber": 11,
-      "orderId": "1776743151966x493554333996023800",
+      "orderId": "1776753292857x758842839286415400",
       "tickets": "Standard×3",
       "promo": "PCT100",
-      "checkout": "Guest-ZeroTicket"
+      "checkout": "Guest"
     },
     {
       "orderNumber": 12,
-      "orderId": "1776743396429x194224854679158800",
+      "orderId": "1776753303791x171952468517191680",
       "tickets": "Premium×2",
       "promo": "FLAT1000",
-      "checkout": "Guest-TrueZero"
+      "checkout": "Guest"
     },
     {
       "orderNumber": 13,
-      "orderId": "1776743591514x719268590640693200",
-      "tickets": "Std+PremUnlim 3+3",
+      "orderId": "1776753323745x699960470208249900",
+      "tickets": "Standard×3 + Premium Unlimited×3",
       "promo": "None",
-      "checkout": "GuestRegister-UserD"
+      "checkout": "Guest->Register (User D)"
     },
     {
       "orderNumber": 14,
-      "orderId": "1776743927640x921030651415101400",
+      "orderId": "1776753332701x782172841800630300",
       "tickets": "Premium×5",
       "promo": "PCT20",
-      "checkout": "GuestRegister-UserE-SpecialChars"
+      "checkout": "Guest->Register (User E)"
     },
     {
       "orderNumber": 15,
-      "orderId": "1776744233402x262064853259386880",
-      "tickets": "StdUnlim×4",
+      "orderId": "1776753342659x509882721742094340",
+      "tickets": "Standard Unlimited×4",
       "promo": "FLAT10",
-      "checkout": "GuestRegister-UserF"
+      "checkout": "Guest->Register (User F)"
     },
     {
       "orderNumber": 16,
-      "orderId": "1776744555201x492389813612970000",
+      "orderId": "1776753260552x458443828580057100",
       "tickets": "Standard×3",
       "promo": "None",
-      "checkout": "GuestLoginTopRight-UserC"
+      "checkout": "Guest→Login top-right (User C)"
     },
     {
       "orderNumber": 17,
-      "orderId": "1776744822675x836696848745103400",
-      "tickets": "Std+Prem+StdUnlim 2+2+3",
+      "orderId": "1776753902751x173419762073468930",
+      "tickets": "Standard×2 + Premium×2 + Standard Unlimited×3",
       "promo": "PCT20",
-      "checkout": "GuestLoginTopRight-UserC-SpecialChars"
+      "checkout": "Guest→Login top-right (User C)"
     },
     {
       "orderNumber": 18,
-      "orderId": "1776745059002x520427968047349760",
-      "tickets": "PremUnlim×5",
+      "orderId": "1776754365663x139984173287342080",
+      "tickets": "Premium Unlimited×5",
       "promo": "FLAT10",
-      "checkout": "RegisterLogin-UserA"
+      "checkout": "Register→Login (User A)"
     },
     {
       "orderNumber": 19,
-      "orderId": "1776745313084x786514180280680400",
-      "tickets": "All4Types 2+2+3+2",
+      "orderId": "1776754149502x904134324086636500",
+      "tickets": "Standard×2 + Premium×2 + Standard Unlimited×3 + Premium Unlimited×2",
       "promo": "PCT100",
-      "checkout": "RegisterLogin-UserB-SpecialChars"
+      "checkout": "Register->Login (User B)"
     },
     {
       "orderNumber": 20,
-      "orderId": "1776745521269x821908795088175100",
-      "tickets": "Std+PremUnlim 4+3",
+      "orderId": "1776754447453x374515200122159100",
+      "tickets": "Standard×4 + Premium Unlimited×3",
       "promo": "FLAT1000",
-      "checkout": "LoggedIn-UserB-TrueZero"
+      "checkout": "Logged-in (User B)"
     }
   ]
 }

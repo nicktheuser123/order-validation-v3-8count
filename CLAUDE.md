@@ -37,7 +37,7 @@ Jest-based validation framework for the 8count Bubble app. Test files fetch data
 | Refund | `tests/refund.test.js` | 13 assertions against `REFUND_ORDER_ID` |
 | E2E permutation | `e2e-gp-testing/tests/e2eOrder.test.js` | 42 assertions over the 20-order state in `e2e-gp-testing/e2e-state.json` |
 
-The E2E suite is driven by the orchestration documented in `e2e-gp-testing/PLAN-v1.md` + `runbook.md`: Claude sub-agents create an event, run 20 permuted purchases, then the Jest file validates every resulting order.
+The E2E suite is driven by the orchestration documented in `e2e-gp-testing/runbook.md` (config in `e2e-gp-testing/settings.json`): Claude sub-agents create an event, run 20 permuted purchases, then the Jest file validates every resulting order.
 
 ### Jest execution order (critical)
 

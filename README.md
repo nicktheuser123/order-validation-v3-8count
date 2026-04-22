@@ -39,4 +39,4 @@ testConfig.js     IDs, flags, Bubble type names
 CLAUDE.md         Architecture notes for Claude Code
 ```
 
-See [CLAUDE.md](CLAUDE.md) for architecture details. The E2E pipeline is specced in [`e2e-gp-testing/PLAN-v1.md`](e2e-gp-testing/PLAN-v1.md) and driven by [`e2e-gp-testing/runbook.md`](e2e-gp-testing/runbook.md).
+See [CLAUDE.md](CLAUDE.md) for architecture details. The E2E pipeline is specced and driven entirely by [`e2e-gp-testing/runbook.md`](e2e-gp-testing/runbook.md) (settings live in `e2e-gp-testing/settings.json`).
