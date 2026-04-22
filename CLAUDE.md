@@ -71,3 +71,13 @@ Copy `.env.example` to `.env` and set:
 ### Test output
 
 `test-results.md` (at repo root for `tests/` suites, at `e2e-gp-testing/test-results.md` for the E2E suite) is overwritten on every run. Sections: Overview, Per-Order Results (one table per orderId), Aggregate Results, Failures.
+
+### E2E deterministic code — mandatory pre-check
+
+When writing or modifying deterministic Playwright code under `e2e-gp-testing/scripts/` (including extending `run-order-deterministic.js`), do this before writing any selector or fill:
+
+1. Grep `e2e-gp-testing/runbook.md` for each third-party or framework component in your target flow (e.g. `authorize`, `ionic`, `bubble input`, `bubble shared`, `run-code`, `login`, `$0`).
+2. Read every Gotchas Registry entry that matches.
+3. In your next chat message, cite the matching registry entry headings (one line each) that will govern your code. If no entry matches for a specific concern, state that explicitly — this surfaces it as a potential `newGotchas` candidate.
+
+Do NOT write selectors based on guesses about the HTML when a registry entry already documents the correct pattern. The registry exists because guessing has already cost real debug cycles (see `e2e-gp-testing/.mvp-status.md` history).

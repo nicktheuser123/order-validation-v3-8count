@@ -17,6 +17,13 @@ e2e-gp-testing/results/
 # never commit manual copies an agent may have piped to the repo root.
 order*-*.yml
 
+# MVP deterministic-runner transient artifacts
+e2e-gp-testing/discovery.json
+e2e-gp-testing/heal.log
+e2e-gp-testing/.order-*-done.json
+e2e-gp-testing/.setup-done-*
+e2e-gp-testing/.worker-common.md
+
 # IDE and editor files
 .vscode/
 .idea/

@@ -29,6 +29,56 @@ Subset and append control:
 3. **When confused about any page, element, or workflow:** use Buildprint MCP tools (`search_json`, `get_json`, `get_tree`) with appId `k-8count` and version `81rkv` — it has the complete Bubble app definition
 4. **This guide describes WHAT to do, not HOW to click** — figure out selectors on the fly using snapshots
 5. **Record all IDs in `e2e-state.json`** — this is how agents coordinate
+6. **Before writing any deterministic selector or fill code**, grep the Gotchas Registry (bottom of this file) by component name and cite the matching entries in-chat. Enforced by `CLAUDE.md`.
+
+## Phase 0: Discovery (observe → record → generate)
+
+**Purpose.** Capture real DOM IDs and selector strategies from a live walkthrough, so the deterministic runner can be written or extended without guessing. This is the handoff point between the old LLM-only flow (Phase 2 below) and the deterministic runner (`scripts/run-order-deterministic.js`).
+
+### When to run this phase
+
+- The user added new `ID Attribute` values in the Bubble editor for a flow not yet covered by `discovery.json`.
+- A new flow branch needs to be supported (new checkout type, new promotion, new admin UI, a $0 path).
+- A deterministic step broke (ID changed, element moved, new gotcha emerged) — treat as re-discovery for just that step.
+
+### What it produces
+
+`e2e-gp-testing/discovery.json` — the observation log the runner generator (Claude, in chat) reads to write or extend `run-order-deterministic.js`.
+
+- `steps[]` — per interaction: `businessName`, `action` (`click`/`fill`/`toggle`/`wait`), `id` (real CSS ID or `null`), `tag`, `class`, `text`, `notes` (disambiguation rules + any Gotchas Registry entry names that applied).
+- `missingIdsOnStep*` — elements lacking an ID that the user should add in the Bubble editor before the next republish.
+- `newGotchas` — silent failures without a matching registry entry; promoted into the Gotchas Registry after the run.
+
+### Prerequisites
+
+- User has added Bubble `ID Attribute` values and republished `version: 81rkv`.
+- Agent has grepped the Gotchas Registry (bottom of this file) for every third-party or framework component in the target flow (`authorize`, `ionic`, `bubble input`, `run-code`, `shared id`, `login`, `promo`, `$0`, etc.) and is applying those patterns proactively — no re-discovering known fixes.
+
+### Agent contract
+
+Session name: `-s=gp-discovery-<slug>` (e.g. `gp-discovery-o06-flat10`). Never the default session.
+
+1. `playwright-cli -s=gp-discovery-<slug> open <eventUrl> --headed` — fresh isolated context.
+2. Follow the Phase 2 business flow via snapshot-driven navigation. At each interaction:
+   - Apply the relevant Gotchas Registry pattern proactively (`pressSequentially` for Authorize.net, native-setter + input/change events for Bubble inputs, inner-`<label>` for ionic toggles, visibility + DOM-order for shared-ID elements).
+   - Probe the DOM: `document.getElementById('<expected-id>')`, `querySelectorAll('#<id>').length`, `offsetParent !== null` for visibility.
+   - Append a step object to `discovery.json` with the real ID, disambiguation notes, and any registry-entry citations.
+3. When a pattern that should work fails silently, record a minimal reproducer + the fix that eventually worked in `newGotchas`.
+4. Close the session + `delete-data` at the end.
+
+### Handoff to runner generation (this chat)
+
+After discovery, the user prompts in chat: *"generate the deterministic code for <flow>"* (or: *"extend `run-order-deterministic.js` to handle order #<N>"*). Claude's contract:
+
+1. Read the relevant `discovery.json` steps.
+2. Grep the Gotchas Registry for every component touched.
+3. **Cite the matching registry entries in-chat, one line per entry**, before writing any selector or fill code. If no entry matches for a specific concern, state that explicitly.
+4. Reuse helpers already in `scripts/run-order-deterministic.js` (`pwEval`, `pwEvalVoid`, `waitFor`, `fillBubbleInput`, `clickVisibleByIdIndex`) instead of duplicating.
+5. Hand the runner to the user to execute. Debug cycles happen in-chat and feed back into the registry as `newGotchas` promotions.
+
+### Registry-promotion rule
+
+After each discovery pass, any `newGotchas` entries in `discovery.json` must be reviewed and moved into the Gotchas Registry (below) with Symptom / Cause / Fix / Source. The registry is the single source of truth; `discovery.json`'s `newGotchas` array is staging only.
 
 ## Phase 1: Event Setup
 
@@ -177,16 +227,16 @@ Per-order lifecycle:
 9. Check the terms checkbox at the bottom of step 1 (just above CONTINUE AS GUEST)
 10. Click "CONTINUE AS GUEST" (or "REGISTER & SAVE INFO" for register flow)
 11. **Step 2 - Payment**: Scroll down to see the terms toggle and PAY NOW button
-12. Toggle "I agree to the Terms and Conditions" — this is a Bubble ionic toggle. Click it with: `page.locator('.bubble-element.ionic-IonicToggle.clickable-element').first().click({ force: true })`. Wait 1-2 seconds after the page transitions to Step 2 before attempting this — the toggle element needs time to render
+12. Toggle "I agree to the Terms and Conditions" — see `### Bubble ionic-toggle` entries in the Gotchas Registry. Click the inner `<label>`, verify the inner checkbox is `checked=true`, then click PAY NOW.
 13. Click "PAY NOW" — the button is greyed out until the toggle is ON
-14. **Authorize.net page**: Wait for the payment form to load (~5-10s). Fill: Card Number, Exp Date, Card Code, Last Name, Zip, Address, City, State. Click "Pay" → wait for confirmation → click "Continue"
+14. **Authorize.net page**: see the `### Authorize.net` entries in the Gotchas Registry. Wait for `#cardNum` to be visible, then `pressSequentially` every field, then click the "Pay" button.
 15. **Success** = "Purchase Completed!" heading on the return page
 16. `playwright-cli -s=gp-order-NN close` then `playwright-cli -s=gp-order-NN delete-data`
 17. Verify via Bubble API and record the order ID in `e2e-state.json`
 
 ### For $0 Orders (#11, #12, #19, #20)
 
-When a 100% or large flat discount makes the total $0, the payment step may be entirely skipped. The order may complete immediately after clicking "PAY NOW" or equivalent. Handle this gracefully.
+See `### $0 orders` in the Gotchas Registry. Short version: the checkout swaps PAY NOW for a "COMPLETE ORDER 0$" button and skips Authorize.net entirely.
 
 ### Payment Method Testing
 
@@ -215,128 +265,372 @@ Validate all 20 orders against the calculation engine and reporting aggregates.
 - **Event guest portal**: URL stored in `e2e-state.json` after event creation
 - **For any other page**: use Buildprint MCP `get_tree` or `search_json` to discover pages
 
-## Known Pitfalls & Lessons Learned
+## Gotchas Registry
 
-_Updated after each run. Add issues encountered and how to avoid them._
+Grep-friendly index of silent-failure patterns and their fixes, indexed by component. Each heading is `### <Component>: <short symptom>` so `grep -ni "### <component>"` surfaces every entry for that component.
 
-### Waiting for UI Transitions (CRITICAL)
-- **Never use `waitForTimeout` as your primary wait strategy** for UI transitions. Timeouts are unreliable — the popup may take longer than expected, or the click may not register immediately
-- **Always wait for a specific element to be visible** as proof the transition completed. Use `page.locator(...).waitFor({ state: 'visible', timeout: 10000 })` before interacting
-- **Anchor waits to heading/title elements** that are unique to the target view:
-  - Login popup → `heading "Log in"`
-  - Signup popup → `heading "Create an 8Count profile"`
-  - Step 1 Registration → `heading "Registration"`
-  - Step 2 Payment → `heading "Payment"` (level 4)
-  - Authorize.net page → `textbox "Card Number"`
-  - Order success → `heading "Order Confirmed"` OR `heading "Purchase Completed!"`
-- After a click that opens a popup, wait for the popup's heading before trying to fill its fields
-- After filling fields in a popup, take a fresh snapshot before querying refs — the snapshot tree is stale after interactions
+Structured entries use **Symptom / Cause / Fix / Source**. Broader guidance (UI transitions, snapshot hygiene) stays in narrative form.
 
-### Browser Session Management
-- **Every command uses `-s=<name>`.** The default (unnamed) session is forbidden during Phase 2. Order workers use `-s=gp-order-NN`; setup agents use `-s=gp-setup-{A,B,C}`. Two agents sharing the default session will land on the same Bubble cookies, the last-created order will echo into every tab, and follow-up purchases will be blocked by "in-progress order" checks
-- **One named session per order.** Close + `delete-data` the session when the order finishes. Never reuse one `gp-order-NN` across two orders
-- **Never open new tabs.** If a new tab opens accidentally (e.g. clicking a link), close it immediately with `playwright-cli -s=gp-order-NN tab-close`
-- **Never navigate to separate login pages.** All auth happens via the popup on the ticket page
-- **Log out after any EP admin work** performed in the same named session. (Normally this is impossible under the contract — EP admin and order work live in different session names. If they ever share, log out before reusing.)
-- **Between different user logins within one agent's queue** (e.g. Owner-A rolling from order #6 to order #7): always close the previous `gp-order-NN` session fully, then open a new `gp-order-MM` with the next order's number. Do not log out and log in within one named session
+**When writing or modifying deterministic Playwright code under `e2e-gp-testing/scripts/`, grep this section for every component in your flow first** (`authorize`, `bubble`, `ionic`, `playwright-cli`, `login`, `shared id`, etc.) and cite the matching entries in-chat before writing selectors. `CLAUDE.md` enforces this.
 
-### Snapshot Hygiene
-- **Do not save manual snapshot copies.** `playwright-cli` already auto-saves every snapshot to `.playwright-cli/page-<timestamp>.yml`. Never write files like `orderN-stepN.yml` to the repo root — the accessibility-tree refs inside (`[ref=eXX]`) are session-scoped and die the moment the browser closes, so these files have no replay value and just pollute the tree
-- If you genuinely need to capture a specific snapshot for later reference, read `.playwright-cli/page-<timestamp>.yml` directly instead of duplicating it
+---
 
-### Bubble App Behavior
-- Use `domcontentloaded` not `networkidle` for waits — Bubble has persistent polling that prevents networkidle from resolving
-- Element refs change after every interaction — always snapshot before the next action
-- Bubble may show loading spinners between steps — wait for them to disappear before proceeding
+### Authorize.net: field names are not the American spellings
 
-### Step-2 Ionic Terms Toggle (CRITICAL — PAY NOW silently no-ops until this is ON)
+**Symptom:** `input[name="cardNumber" | "expirationDate" | "cardCode"]` and `button#submitButton` all match nothing.
+**Cause:** Authorize.net's hosted form uses different field names than docs imply.
+**Fix:** Card fields are `#cardNum`, `#expiryDate`, `#cvv` (all `type=tel`). Billing fields are `input[name="firstName" | "lastName" | "zip" | "address" | "city" | "state" | "phoneNumber"]`. The submit button has text `"Pay"` and no `name` attribute — select with `page.locator('button:has-text("Pay")').first()`.
+**Source:** Order #3 deterministic-runner build, 2026-04-22.
 
-The Step-2 "I agree to the Terms and Conditions" is a Bubble ionic toggle. **Force-clicks on the outer `.bubble-element.ionic-IonicToggle.clickable-element` div often LOOK like they work but leave the inner `<input type=checkbox>` at `checked=false`, and PAY NOW silently does nothing.** Multiple workers in past runs wasted retries on this.
+### Authorize.net: `fill()` silently ignored, validation requires `pressSequentially`
 
-Reliable strategies (try in this order):
+**Symptom:** Fields look populated after `page.fill('#cardNum', ...)` but the Pay button stays disabled.
+**Cause:** Angular validation on the form only fires on keystroke events; `fill()` writes the value without triggering them.
+**Fix:** Use `pressSequentially` on **every** field including billing, with a 30–40ms delay. Then click Pay.
+```js
+await page.locator('#cardNum').pressSequentially('4007000000027', { delay: 40 });
+```
+**Source:** Pre-existing Phase 2 runbook (most-cited pitfall). Re-confirmed Order #3 run.
 
-1. **Click the inner `<label>` element** — most reliable single-shot pattern:
-   ```js
-   container.querySelector('label').click()
-   ```
-2. **Click the inner `input[type=checkbox]` directly** via JS.
-3. **Playwright locator force-click**: `page.locator('.bubble-element.ionic-IonicToggle.clickable-element').first().click({ force: true })`.
-4. **Last resort**: real mouse events at the toggle's bounding-rect center — `page.mouse.move(x,y)` → `mousedown` → `mouseup`.
+### Authorize.net: expiry date must be digits only (mask inserts the slash)
 
-**ALWAYS verify the inner checkbox state after clicking**: `input.checked === true` BEFORE clicking PAY NOW. If it didn't flip, PAY NOW is inert.
+**Symptom:** Typing `04/27` breaks validation; Pay stays disabled.
+**Cause:** The field has its own mask that inserts the slash for display.
+**Fix:** Type digits only (`0427`). Mask renders `04/27`.
+**Source:** Pre-existing Phase 2 runbook.
 
-**After the Authorize.net Add-Payment-Method detour (see below), the toggle RESETS** — re-toggle before the second PAY NOW attempt.
+### Authorize.net: "Add Payment Method" detour for first-order-per-logged-in-user
 
-Never click the "Terms and Conditions" text link next to the toggle — it opens a new tab.
+**Symptom:** Clicking PAY NOW as a freshly-logged-in User A/B/C/D/E/F with no saved card silently no-ops.
+**Cause:** Bubble requires a saved payment method for logged-in users; PAY NOW is inert without one.
+**Fix:**
+1. Click `+ Add Payment Method` on Step 2 → redirects to Authorize.net's `customer/addPayment` page (different from the regular payment redirect).
+2. Fill card + billing with `pressSequentially`, click **SAVE** (not Pay).
+3. Returns to Step 2. The ionic terms toggle **resets** during this round-trip — re-toggle before the second PAY NOW.
+4. Second PAY NOW completes immediately (no redirect) — land on "Order Confirmed".
+5. Subsequent orders for the same user reuse the saved card.
 
-### Checkout Flow
-- Step 1 has TWO sets of checkboxes: "same for all tickets" near the top, and a terms checkbox near the bottom (just above CONTINUE AS GUEST). Both need to be checked
-- Step 2 has the terms TOGGLE above (not a checkbox). Use the strategies in the section above. PAY NOW stays greyed out until the toggle's inner checkbox is actually `checked=true`
-- **PROCEED TO CHECKOUT click**: the containing `<div>` sometimes intercepts pointer events. If the button's own ref doesn't click, try clicking the inner text ref of the button's label instead
+Rare fallback: if SAVE stays disabled even after `pressSequentially`, clicking Cancel has been observed to still persist the card server-side. Prefer fixing SAVE.
+**Source:** Pre-existing Phase 2 runbook.
 
-### Authorize.net Payment (regular flow)
-- The payment page may take 5-10 seconds to fully load — wait for the `textbox "Card Number"` before filling
-- After clicking "PAY NOW", wait for the redirect to Authorize.net before interacting
-- **`fill()` does NOT trigger Authorize.net's Angular validation.** Fields look populated but the Pay button stays disabled. Use `pressSequentially` for Card Number, Exp Date, and CVV, then Tab to blur — that triggers validation and enables Pay. This is the #1 cause of "stuck Pay button" reports.
-- **Exp Date mask**: type digits only (e.g. `0427`). The mask auto-inserts the slash to display `04/27`. Typing the slash yourself breaks validation.
-- First/Last name auto-populate from Step-1 contact info — you may need to overwrite the last name to match `settings.payment.lastName`
-- After clicking "Pay", wait for "Thank you" confirmation, then click "Continue" to return to the event site
+### Authorize.net: First/Last name auto-populate from Step 1
 
-### Authorize.net "Add Payment Method" detour (first order per logged-in user)
+**Symptom:** Last Name doesn't match `settings.payment.lastName` after the redirect.
+**Cause:** Authorize.net pre-fills First/Last from the Step 1 contact info.
+**Fix:** Triple-click to select, then `pressSequentially` the desired last name.
+```js
+const ln = page.locator('input[name="lastName"]');
+await ln.click({ clickCount: 3 });
+await ln.pressSequentially(settings.payment.lastName, { delay: 30 });
+```
+**Source:** Pre-existing Phase 2 runbook.
 
-Any User A/B/C/D/E/F on their FIRST order of a run has no saved payment method (preflight + the test-user deletion step wipe state between runs). The flow is different from a pure-guest Authorize.net redirect:
+### Authorize.net: wait for Continue button after Pay, then click to return to Bubble
 
-1. On Step-2, clicking PAY NOW with no saved card silently no-ops — do **not** loop clicking it; switch to the detour below.
-2. Click **"+ Add Payment Method"** on Step-2. This redirects to Authorize.net's standalone `customer/addPayment` page (a different page from the regular payment redirect).
-3. Fill card + billing address there and click **SAVE** (not Pay). Use `pressSequentially` for the card fields — `fill()` leaves SAVE disabled.
-4. SAVE returns you to Step-2 with the card now saved to the user's profile.
-5. **The ionic terms toggle RESETS during this round-trip** — re-toggle it (see the toggle section above) before the second PAY NOW.
-6. Click PAY NOW. The card is on file now, so the order completes immediately with NO second Authorize.net redirect — you land straight on "Order Confirmed".
-7. All subsequent orders for that user reuse the saved card; no detour needed.
+**Symptom:** Navigating immediately after Pay misses the return to Bubble.
+**Cause:** A "Thank you" + Continue interstitial handles the redirect back.
+**Fix:**
+```js
+await page.waitForSelector('button:has-text("Continue")', { timeout: 45000, state: 'visible' });
+await page.locator('button:has-text("Continue")').first().click();
+```
+**Source:** Order #3 deterministic run, 2026-04-22.
 
-Note: on rare occasions the SAVE button on Authorize.net stays disabled even after `pressSequentially` — clicking Cancel has been observed to still persist the card server-side (the next Step-2 shows the card on file). Prefer getting SAVE to enable; only fall back to Cancel if you've already retried and Step-2 shows the card anyway.
+---
 
-### Currency and Percentage Input Fields
-- Bubble's currency input fields use a mask. To set a price: first clear the field using the native value setter (`el.value = ''` with input/change events dispatched), then use `pressSequentially` to type the digits. Do not use `fill()` alone — it may produce wrong values
-- Bubble's percentage fields store values as decimals (0.20 = 20%). The GP admin UI percentage inputs can be unreliable — verify values via the Bubble Data API after creation and patch with `curl -X PATCH` if needed
+### Browser session: every `playwright-cli` call needs `-s=<name>` in Phase 2
 
-### Event Setup
-- Google Places autocomplete (venue location) requires `pressSequentially` with delay, not `fill`
-- Select2 dropdowns (multi-select like scoresheet classes): after the first selection, the textbox ref changes — use `input[type="search"]` for subsequent selections
-- For date pickers: use `.first()` for start date calendar controls and `.last()` for end date
-- The "Cart Limit" field on ticket creation is required (1-10) — if left at 0, creation fails
-- The "Scan Limit" dropdown on ticket creation is required — select "Single Use" or another option
-- Custom fee creation: click the "+" button near "Custom Fees" heading in settings. It opens a popup form. The info (?) button opens a help popup instead — don't confuse them
-- Promotion percentage values may not save correctly via the UI. After creating percentage promotions, verify via `curl` to the Bubble API and patch `DiscountPct` if needed
-- **Promotions must be assigned to ticket types.** After creating promotions, edit EACH ticket type → click "Assigned Promotions" tab → check all applicable promotions → Save. Without this, promo codes will show "Invalid coupon code for this event" at checkout
-- The "Assigned Promotions" tab shows a list with checkboxes. Use the select-all checkbox at the top to assign all promos at once
-- Order of setup matters: create promotions FIRST, then create ticket types and assign promos during creation (or edit tickets after to assign). If tickets are created before promos, you must go back and edit each ticket to assign
+**Symptom:** Two agents land on the same Bubble cookies; orders echo across tabs; follow-up purchases are blocked by "in-progress order" checks.
+**Cause:** The default (unnamed) `playwright-cli` session is shared across invocations.
+**Fix:** Every command passes `-s=<name>`. Order workers use `-s=gp-order-NN`. Setup agents use `-s=gp-setup-{A,B,C}`. Discovery agents use `-s=gp-discovery-<slug>`.
+**Source:** Pre-existing Phase 2 runbook.
 
-### $0 Orders
-- When a discount makes the total $0.00, the checkout shows a "COMPLETE ORDER 0$" button instead of "PAY NOW" — no redirect to Authorize.net. Just click it
-- A 100% percentage discount (PCT100) zeroes out ticket price but service fee + tax on service fee still apply — so the order may NOT be $0 (e.g. 3 Standard tickets: $0 tickets + $6 SF + $0.39 tax = $6.39)
-- A large flat discount (FLAT1000 on $200 tickets) fully zeroes the order including fees — true $0
+### Browser session: one named session per order, close + delete-data when done
 
-### Guest→Register (REGISTER & SAVE INFO) Flow
-- After clicking "REGISTER & SAVE INFO", a signup popup appears with Email, Password, Confirm password
-- **The popup's Email field starts EMPTY** even though you filled an email in the checkout form — you must fill it again in the popup
-- The popup's Email field conflicts with checkout form email fields. Target it using: `page.locator('input[placeholder="Email"]').last()` to get the popup's field
-- The popup's Password fields can be targeted by snapshot ref (getByRole textbox 'Password' and 'Confirm password') — but ONLY after taking a fresh snapshot once the popup is visible
-- After successful signup, the user is logged in and the CONTINUE button appears (replacing CONTINUE AS GUEST / REGISTER). Cart is preserved
-- New registered users have no saved payment method — must click "+ Add Payment Method" on Step 2
+**Symptom:** Cross-order cookie pollution when a worker reuses a session across multiple orders.
+**Fix:** Close + `delete-data` the previous session before opening a fresh `-s=gp-order-MM`. Never log out/in within a single session; between different-user orders, close + reopen.
+**Source:** Pre-existing Phase 2 runbook.
 
-### Screenshots for Debugging
-- Take screenshots only when stuck (after 2+ failed attempts on the same step)
-- Do not screenshot on every step — it slows down the flow
-- Screenshots are useful for: identifying unexpected UI state, finding elements not in the snapshot tree, debugging element overlap issues
+### Browser session: never open new tabs, never navigate to separate login pages
 
-### Business Logic Findings (from first full run)
+**Symptom:** Accidental new tab from a link click fragments session state.
+**Fix:** Close stray tabs immediately with `playwright-cli -s=<name> tab-close`. All auth happens via the popup on the ticket page — never a separate login page.
+**Source:** Pre-existing Phase 2 runbook.
 
-These calculation rules were discovered via Jest test failures and verified against Bubble's actual stored values. The `lib/orderCalculator.js` was updated to match. Do not "fix" these again — they are intentional:
+---
 
-1. **FLAT discount cap**: `Discount Amount` stored value is capped at ticket gross (`min(discount, grossTicketTotal)`). However the service-fee-absorb check (`addonGross - discount <= 0`) uses the UNCAPPED discount value
-2. **Percentage custom fees apply post-discount**: `(totalGrossTicketBase - discountTotal + totalServiceFee) × feeAmt`, not pre-discount
+### Bubble async backend: use `domcontentloaded`, not `networkidle`
 
-### Known Test Failures (non-actionable)
+**Symptom:** `waitForLoadState('networkidle')` never resolves.
+**Cause:** Bubble has persistent polling; the network never goes idle.
+**Fix:** Use `domcontentloaded`. For data-ready state, `waitForFunction` on a DOM condition (e.g., cart subtotal text matches expected).
+**Source:** Pre-existing Phase 2 runbook.
 
-- Per-order custom fee assertion may be off by $0.01 in rare cases: Bubble rounds tax per-addon then sums; our calculator sums base then rounds. Pure floating-point strategy divergence — not a business logic error. All reporting-daily aggregates still match exactly
+### Bubble async backend: per-order floor of 25s to let workflows settle
+
+**Symptom:** Deterministic runs outrun Bubble's async workflows; reconciliation sees partial state.
+**Cause:** Bubble's server-side workflows are async; the UI confirms success before all side-effects land.
+**Fix:** In the runner, measure elapsed from order start; if `< MIN_ORDER_MS` (currently 25000), sleep the remainder before closing the session.
+**Source:** Approved MVP plan, 2026-04-22.
+
+### Bubble async backend: observable-state wait after cart mutations
+
+**Symptom:** Proceeding to checkout with a stale cart subtotal.
+**Fix:** After each ADD or promo apply, `page.waitForFunction` until the cart subtotal text matches the expected value. Blocked on the cart subtotal needing an ID — see `missingIdsOnStep*` in `discovery.json`.
+**Source:** Approved MVP plan, 2026-04-22.
+
+---
+
+### Bubble currency input: use clear + `pressSequentially`, not `fill()`
+
+**Symptom:** `fill('50')` produces wrong value; mask mis-parses the digits.
+**Cause:** Bubble currency fields use a client-side mask.
+**Fix:** Clear with native setter + `input`+`change` events, then `pressSequentially` the digits only.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Bubble event setup: Google Places autocomplete requires `pressSequentially`
+
+**Symptom:** `fill('1234 Main St')` doesn't trigger the autocomplete dropdown.
+**Fix:** `pressSequentially` with a delay.
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble event setup: Select2 textbox ref changes after first selection
+
+**Symptom:** Second selection in a multi-select fails — the ref is stale.
+**Fix:** After the first selection, target subsequent ones via `input[type="search"]`.
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble event setup: promotions must be assigned to ticket types
+
+**Symptom:** Promo code returns "Invalid coupon code for this event" at checkout.
+**Cause:** Creating a promotion doesn't auto-link it to ticket types.
+**Fix:** After creating promos, edit each ticket type → "Assigned Promotions" tab → check all applicable → Save. Use the select-all checkbox at the top to assign all at once.
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble event setup: Cart Limit and Scan Limit required on ticket creation
+
+**Symptom:** Ticket creation fails silently or with a validation error.
+**Fix:** Cart Limit must be 1–10 (default 0 fails). Scan Limit must be selected (e.g., "Single Use").
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble event setup: custom fee creation is the "+" button, not "?"
+
+**Symptom:** Clicking the info (?) button opens a help popup, not the create-fee form.
+**Fix:** Click the "+" button near the "Custom Fees" heading in settings.
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble event setup: date pickers need `.first()` / `.last()` disambiguation
+
+**Symptom:** Setting start-date also sets end-date, or the wrong calendar opens.
+**Fix:** Use `.first()` for start-date calendar controls, `.last()` for end-date.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Bubble input: `el.value = x` does not register — native setter + events required
+
+**Symptom:** Setting a Bubble input's value programmatically doesn't update the framework state; `fill()` also fails.
+**Cause:** Bubble hooks into React-style property descriptors; plain assignment bypasses the framework listeners.
+**Fix:** Use the native value setter, then dispatch `input` + `change` events.
+```js
+const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+setter.call(el, value);
+el.dispatchEvent(new Event('input', { bubbles: true }));
+el.dispatchEvent(new Event('change', { bubbles: true }));
+```
+Encapsulated in the `fillBubbleInput(id, value)` helper in `scripts/run-order-deterministic.js`.
+**Source:** Order #3 discovery + deterministic-runner build, 2026-04-22.
+
+---
+
+### Bubble ionic-toggle: outer div click silently no-ops — click inner `<label>`
+
+**Symptom:** Clicking `.bubble-element.ionic-IonicToggle.clickable-element` appears to succeed but the inner `<input type=checkbox>` stays `checked=false`, and PAY NOW is inert.
+**Cause:** The outer div is a passive wrapper; the `<label>` dispatches the toggle.
+**Fix:** Click the inner label; verify the checkbox state before clicking PAY NOW.
+```js
+document.getElementById('toggle-terms').querySelector('label').click();
+// verify:
+document.querySelector('#toggle-terms input[type=checkbox]').checked === true
+```
+Fallback ladder if the label click silently fails: direct `input[type=checkbox].click()` → `page.locator(...).click({ force: true })` → real mouse events at the bounding-rect center.
+
+**Never** click the "Terms and Conditions" text link next to the toggle — it opens a new tab.
+**Source:** Pre-existing Phase 2 runbook + Order #3 discovery.
+
+### Bubble ionic-toggle: resets after Authorize.net Add-Payment-Method detour
+
+**Symptom:** Toggle was ON before the detour, but OFF after returning to Step 2.
+**Fix:** Re-toggle before the second PAY NOW.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Bubble percentage input: may save wrong — verify via API and patch
+
+**Symptom:** UI shows 20% but stored `DiscountPct` is 0.2 / 0.02 / 2 — values vary.
+**Cause:** UI save for percentage fields is buggy.
+**Fix:** After creation, `curl -X PATCH /api/1.1/obj/gp_promotion/<id>` with the correct decimal (0.20 for 20%).
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Bubble shared IDs: `#add` and `#add-item` disambiguated by visibility + DOM order
+
+**Symptom:** `document.getElementById('add')` returns the first of 4 elements; `#add-item` matches one per active card.
+**Cause:** The Bubble editor does not enforce unique IDs across repeating groups.
+**Fix:** Filter by `offsetParent !== null` (visibility), then pick by DOM-order index. Encapsulated in the `clickVisibleByIdIndex(id, index)` helper.
+```js
+const visible = Array.from(document.querySelectorAll('#' + id)).filter(e => e.offsetParent !== null);
+visible[index].click();
+```
+On the tickets view, `#add` initial visible order: 0=Standard, 1=Premium, 2=Standard Unlimited, 3=Premium Unlimited. When a card activates, its `#add` disappears (replaced by the quantity widget), so subsequent indices shift: once Standard is active, Premium becomes visible idx 0.
+**Source:** Order #3 discovery, 2026-04-22.
+
+---
+
+### Bubble Step-1: "authorized cardholder" checkbox has no ID
+
+**Symptom:** No `#authorized-cardholder` or similar; class alone matches multiple Groups.
+**Fix:** Target by class + text:
+```js
+Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group'))
+  .find(e => e.textContent.includes('authorized cardholder'))
+  .click();
+```
+Ask the user to add an `ID Attribute` in the Bubble editor to make this deterministic.
+**Source:** Order #3 discovery (logged in `missingIdsOnStep1`), 2026-04-22.
+
+### Bubble Step-1: both checkboxes required ("same for all tickets" + terms)
+
+**Symptom:** CONTINUE AS GUEST doesn't advance to Step 2.
+**Fix:** Check "The contact information is the same for all tickets" near the top **and** the terms checkbox near the bottom (just above CONTINUE AS GUEST).
+**Source:** Pre-existing Phase 2 runbook.
+
+### Bubble Step-1 (Guest→Register): popup Email field starts empty
+
+**Symptom:** Checkout form has an email filled, but the REGISTER & SAVE INFO popup's Email field is empty.
+**Cause:** The popup doesn't inherit from the checkout form.
+**Fix:** Fill the email again in the popup. Target: `page.locator('input[placeholder="Email"]').last()` to disambiguate from the checkout form's email field. Password fields: fresh snapshot once popup is visible, then `getByRole('textbox', { name: 'Password' })` / `name: 'Confirm password'`. After successful signup, the user is logged in and a CONTINUE button replaces CONTINUE AS GUEST / REGISTER; new users have no saved payment method — trigger the Authorize.net Add-Payment-Method detour (see above).
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Bubble checkout: PROCEED TO CHECKOUT containing div may intercept pointer events
+
+**Symptom:** Clicking PROCEED TO CHECKOUT by the button ref does nothing.
+**Fix:** Click the inner text ref of the button's label instead.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Jest calculator: FLAT discount capped at ticket gross in stored value
+
+**Symptom:** FLAT1000 on a $200 order stores `Discount Amount` = $200, not $1000.
+**Cause:** Bubble caps at `min(discount, grossTicketTotal)`. But the service-fee-absorb check (`addonGross - discount <= 0`) uses the **uncapped** discount value.
+**Fix:** Don't "correct" this — `lib/orderCalculator.js` intentionally matches Bubble's behavior.
+**Source:** Pre-existing Phase 2 runbook (Business Logic Findings).
+
+### Jest calculator: percentage custom fees apply post-discount
+
+**Symptom:** Expected tax based on gross, actual tax based on net-of-discount.
+**Fix:** Formula: `(totalGrossTicketBase - discountTotal + totalServiceFee) × feeAmt`. Intentional — matches Bubble.
+**Source:** Pre-existing Phase 2 runbook (Business Logic Findings).
+
+### Jest calculator: $0.01 per-order custom fee rounding divergence
+
+**Symptom:** Per-order custom fee assertion may be off by $0.01 in rare cases.
+**Cause:** Bubble rounds tax per-addon then sums; our calculator sums base then rounds. Pure floating-point strategy divergence — not a business-logic error.
+**Fix:** Accept as a known Jest failure. All reporting-daily aggregates still match exactly.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Login flow: "Login" link only appears inside the tickets view
+
+**Symptom:** No Login link visible on the event landing page.
+**Cause:** The link is only rendered inside the tickets view.
+**Fix:** Click "Tickets" on the landing view → URL becomes `?tab=tickets` → Login link appears top-right. Never navigate to a separate login page; all auth happens via the popup.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### playwright-cli eval: output wrapped in "### Result" — extract the block
+
+**Symptom:** `pw("eval", ...)` stdout looks like raw text; comparisons against `"true"` or JSON fail.
+**Cause:** `playwright-cli` wraps all eval output as `### Result\n<value>\n### Ran Playwright code\n...`.
+**Fix:** Extract the Result block with a regex.
+```js
+const m = raw.match(/### Result\n([\s\S]*?)(?:\n### |$)/);
+return m ? m[1].trim() : "";
+```
+Encapsulated in the `pwEval(js)` helper in `scripts/run-order-deterministic.js`.
+**Source:** Order #3 deterministic run, 2026-04-22.
+
+### playwright-cli run-code: silent failures — exit 0 even when Playwright throws
+
+**Symptom:** `pw("run-code", ...)` returns exit 0 but the inner code threw a TimeoutError/selector-miss.
+**Cause:** The CLI captures the inner error and embeds it as `"err": "..."` in the Result section; the process exit code doesn't reflect it.
+**Fix:** Grep the stdout for `"err":` or `TimeoutError|Error:` and escalate.
+```js
+if (/"err"\s*:/.test(out) || /TimeoutError|Error:/.test(out)) {
+  throw new Error("run-code reported an error:\n" + out);
+}
+```
+Applied around the Authorize.net `run-code` call in `run-order-deterministic.js`.
+**Source:** Order #3 deterministic run, 2026-04-22.
+
+---
+
+### Snapshots: don't save manual copies; refs die when the browser closes
+
+**Symptom:** `orderN-stepN.yml` files accumulate in the repo; their `[ref=eXX]` values are session-scoped and useless once the browser closes.
+**Fix:** `playwright-cli` auto-saves every snapshot to `.playwright-cli/page-<timestamp>.yml`. Read those directly if you need to reference a prior snapshot. Never write snapshot files to the repo root.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### UI transitions: wait for specific visible elements, not `waitForTimeout`
+
+**Symptom:** Tests pass locally then flake on slower environments.
+**Cause:** Fixed timeouts mask the underlying "element not yet rendered" race.
+**Fix:** Anchor waits to unique heading/title elements of the target view. Use `page.locator(...).waitFor({ state: 'visible', timeout: 10000 })`. After a click that opens a popup, wait for the popup's heading before filling fields. After filling fields, take a **fresh snapshot** before querying refs — snapshot trees are stale after interactions.
+
+Reference anchors:
+- Login popup → `heading "Log in"`
+- Signup popup → `heading "Create an 8Count profile"`
+- Step 1 Registration → `heading "Registration"`
+- Step 2 Payment → `heading "Payment"` (level 4)
+- Authorize.net page → `#cardNum` visible (textbox names may not match, see Authorize.net field-names entry)
+- Order success → `heading "Order Confirmed"` or `heading "Purchase Completed!"`
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Unique contact email per run
+
+**Symptom:** Reconciliation picks the wrong order when the same email is reused across runs; Pending debris confuses the query.
+**Cause:** The reconcile script queries by email; duplicates from previous runs match too.
+**Fix:** Timestamp the email: `abhishek+gp-det-o<NN>-${Date.now()}@millionlabs.co.uk`. The Bubble field for this constraint is `Email Address` (**not** `Email Text` — that's a different field).
+**Source:** Order #3 deterministic run, 2026-04-22.
+
+---
+
+### $0 orders: "COMPLETE ORDER 0$" button replaces PAY NOW
+
+**Symptom:** No redirect to Authorize.net happens for a $0 order.
+**Cause:** When the total hits $0, the checkout swaps PAY NOW for a "COMPLETE ORDER 0$" button — no payment step.
+**Fix:** Detect the button text and click it directly. No Authorize.net handling.
+
+Note: A 100% percentage discount (PCT100) zeroes ticket price but service fee + tax on service fee still apply — so the order may **not** be $0 (e.g. 3 Standard: $0 tickets + $6 SF + $0.39 tax = $6.39). A large flat discount (FLAT1000 on $200 tickets) zeroes the whole order including fees — true $0.
+**Source:** Pre-existing Phase 2 runbook.
+
+---
+
+### Screenshots: take only when stuck, not on every step
+
+**Symptom:** Runs slow down significantly when every step takes a screenshot.
+**Fix:** Screenshot only after 2+ failed attempts on the same step, or when debugging element-overlap issues. Don't routinely screenshot during successful runs.
+**Source:** Pre-existing Phase 2 runbook.
