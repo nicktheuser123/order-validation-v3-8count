@@ -354,6 +354,20 @@ await ln.pressSequentially(settings.payment.lastName, { delay: 30 });
 ```
 **Source:** Pre-existing Phase 2 runbook.
 
+### Bubble async backend: tax/custom-fee workflow runs AFTER the success URL flag
+
+**Symptom:** Reconcile-by-email right after `?success=yes` returns an order whose `Total Order Value` is pre-tax (e.g. $360 on Order #3 instead of $383.40). Re-querying 20-30s later returns the correct $383.40.
+**Cause:** Bubble sets the success URL flag as soon as Authorize.net redirects back, but the custom-fee workflow (6.5% tax) runs asynchronously on the backend and can take 20+ seconds to land. The post-return heading that the old runner happened to wait 45s for was masking this race — its timeout was effectively padding the reconcile.
+**Fix:** `closeAndReconcile` sleeps 30s before the first reconcile query and, if `spec.expectedTotal` is set, retries up to 3 more times at 10s intervals when the total still diverges. Content-aware polling is more robust than a fixed sleep because future speed-ups on Bubble's side don't silently reintroduce the race.
+**Source:** Order #3 re-runs, 2026-04-23 (post-generalisation refactor; exposed by the URL-keyed waitForSuccess fix).
+
+### Authorize.net: post-return success heading is too brief — key on the URL query
+
+**Symptom:** After Authorize.net → Continue returns to Bubble at `?tab=tickets&success=yes`, polling for a `Purchase Completed | Order Confirmed` heading times out. The UI flashes a success state for less than one poll interval (400ms) and then repaints the fresh tickets view (cart empty, Login link present). Observed on the post-refactor Order #3 run, 2026-04-23.
+**Cause:** Bubble's success page is ephemeral on this event template — the URL carries the flag but the heading doesn't persist in the DOM long enough for a heading-text poll.
+**Fix:** `waitForSuccess` now ORs the URL check with the heading-text check: `location.search.includes('success=yes') || <heading regex>`. The URL query is stable because it's read by Bubble on return and persists in `location.search` until the user navigates.
+**Source:** Order #3 re-run, 2026-04-23 (post-generalisation refactor).
+
 ### Authorize.net: wait for Continue button after Pay, then click to return to Bubble
 
 **Symptom:** Navigating immediately after Pay misses the return to Bubble.

@@ -209,9 +209,14 @@ async function waitForSuccess() {
     const state = pwEval(`({ url: location.href, title: document.title, sample: (document.body && document.body.innerText || '').slice(0, 300) })`);
     console.log(`[waitForSuccess] post-authnet state: ${state}`);
   } catch { /* debug-only */ }
+  // Bubble sets ?success=yes on the return URL from Authorize.net — this is
+  // the stable signal. The "Purchase Completed" / "Order Confirmed" heading
+  // can flash for less than one poll interval (see 2026-04-23 run) before
+  // Bubble redirects to the refreshed tickets view, so relying on heading
+  // text alone is flaky. Either signal is sufficient.
   await waitFor(
-    `!!Array.from(document.querySelectorAll('*')).find(e => /Purchase Completed|Order Confirmed/i.test(e.textContent || ''))`,
-    { timeoutMs: 45000, label: "success heading" }
+    `location.search.includes('success=yes') || !!Array.from(document.querySelectorAll('*')).find(e => /Purchase Completed|Order Confirmed/i.test(e.textContent || ''))`,
+    { timeoutMs: 45000, label: "success signal" }
   );
 }
 
@@ -395,9 +400,29 @@ async function closeAndReconcile(spec, startedMs) {
   try { pw("delete-data"); } catch {}
 
   console.log(`${tag} resolving Bubble order ID by contact email`);
-  await sleep(8000); // let backend settle before querying
-  const order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
+  // Bubble applies custom fees (tax) via an async post-order workflow that runs
+  // AFTER the success URL flag is set. When waitForSuccess returned quickly
+  // via ?success=yes (the URL-keyed fix) the reconcile could win the race
+  // against the tax workflow and observe a pre-tax total ($360 instead of
+  // $383.40 on Order #3, 2026-04-23). 30s covers the observed tax-workflow
+  // latency on this test event. Poll loop below is extra insurance.
+  await sleep(30000);
+  let order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
   if (!order) throw new Error(`no gp_order found for email ${spec.contact.email}`);
+
+  // If expectedTotal is known, give Bubble a little more time to apply fees if
+  // the total still looks pre-fee. Re-query up to 3 times, 10s apart.
+  if (spec.expectedTotal != null) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const cur = Number(order["Total Order Value"]);
+      if (Math.abs(cur - spec.expectedTotal) <= 0.02) break;
+      console.log(`${tag} total $${cur.toFixed(2)} ≠ expected $${spec.expectedTotal.toFixed(2)} — waiting 10s for async fees (attempt ${attempt + 1}/3)`);
+      await sleep(10000);
+      order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
+      if (!order) throw new Error("order disappeared mid-reconcile");
+    }
+  }
+
   return { order, wallMs: Date.now() - startedMs };
 }
 
