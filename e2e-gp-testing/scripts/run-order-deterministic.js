@@ -31,6 +31,8 @@ const CARD = {
 };
 const EXPECTED_TOTAL = 383.40;
 const MIN_ORDER_MS = 25000;
+// HEADED=false (env) → headless. Default headed (per feedback_headed_browser.md).
+const HEADED = process.env.HEADED !== "false";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -115,8 +117,9 @@ async function run() {
   console.log("[run-order-03] cleaning session");
   try { pw("delete-data"); } catch { /* first-run no-op */ }
 
-  console.log("[run-order-03] opening event page");
-  pw("open", EVENT_URL, "--headed");
+  console.log(`[run-order-03] opening event page (${HEADED ? "headed" : "headless"})`);
+  if (HEADED) pw("open", EVENT_URL, "--headed");
+  else pw("open", EVENT_URL);
   // Bubble's landing view — wait for the Tickets button to exist
   await waitFor(`!!document.getElementById('gp-test-tickets-button')`, { label: "landing Tickets button" });
   await jitter();

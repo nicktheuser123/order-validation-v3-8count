@@ -338,6 +338,13 @@ await page.locator('button:has-text("Continue")').first().click();
 
 ---
 
+### Browser session: headless breaks Bubble ticket-card transitions
+
+**Symptom:** `HEADED=false npm run e2e:run-order` fails at step 2: after clicking the Standard `#add` button, the `#add-item` quantity widget never renders. `waitFor timeout [Standard add-item widget]`.
+**Cause:** Bubble's card → quantity-widget transition depends on layout/visibility state that a headless Chromium without a real viewport doesn't produce. Elements may exist in the DOM but `offsetParent !== null` fails, so `clickVisibleByIdIndex` misses them.
+**Fix:** Run headed (`HEADED=true`, the runner's default per `feedback_headed_browser.md`). Headless is not supported for purchase flows against this Bubble app. If you need a CI-friendly mode, consider `xvfb` or Playwright's `headless: "new"` via the `page.context()` — not currently wired.
+**Source:** Order #3 re-run attempt, 2026-04-22.
+
 ### Browser session: every `playwright-cli` call needs `-s=<name>` in Phase 2
 
 **Symptom:** Two agents land on the same Bubble cookies; orders echo across tabs; follow-up purchases are blocked by "in-progress order" checks.
