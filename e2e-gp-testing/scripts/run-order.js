@@ -1,0 +1,429 @@
+#!/usr/bin/env node
+/**
+ * Spec-driven deterministic runner. Reads orders.json, resolves the order by
+ * --order N (or a free-form --spec file), enriches it with runtime state from
+ * e2e-state.json, and dispatches to the sequencer named by spec.flow.
+ *
+ * Usage:
+ *   node scripts/run-order.js --order 3
+ *   node scripts/run-order.js --spec path/to/ad-hoc-spec.json
+ */
+
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env") });
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("child_process");
+
+// ─── runtime state (set by runOrder before any helper runs) ────────────────
+let SESSION = null;
+const HEADED = process.env.HEADED !== "false";
+const VIEWPORT_WIDTH = parseInt(process.env.VIEWPORT_WIDTH || "1440", 10);
+const VIEWPORT_HEIGHT = parseInt(process.env.VIEWPORT_HEIGHT || "900", 10);
+const MIN_ORDER_MS = 25000;
+
+const CANONICAL_TICKET_ORDER = [
+  "Standard",
+  "Premium",
+  "Standard Unlimited",
+  "Premium Unlimited"
+];
+
+// ─── low-level helpers ─────────────────────────────────────────────────────
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+function jitter() { return sleep(200 + Math.floor(Math.random() * 400)); }
+
+function pw(...args) {
+  if (!SESSION) throw new Error("pw() called before SESSION initialised — runOrder must set it from spec.session");
+  try {
+    return execFileSync("playwright-cli", [`-s=${SESSION}`, ...args], {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+  } catch (err) {
+    const stderr = err.stderr ? err.stderr.toString() : "";
+    console.error(`[pw FAIL] ${args.map((a) => (a.length > 80 ? a.slice(0, 80) + "..." : a)).join(" ")}`);
+    if (stderr) console.error(stderr.trim());
+    throw err;
+  }
+}
+
+function pwEval(js) {
+  const raw = pw("eval", `() => { return (${js}); }`);
+  const m = raw.match(/### Result\n([\s\S]*?)(?:\n### |$)/);
+  return m ? m[1].trim() : "";
+}
+
+function pwEvalVoid(js) {
+  pw("eval", `() => { ${js} }`);
+}
+
+async function waitFor(js, { timeoutMs = 30000, pollMs = 400, label = "" } = {}) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const out = pwEval(js);
+    if (out === "true" || out === '"true"') return;
+    await sleep(pollMs);
+  }
+  throw new Error(`waitFor timeout${label ? ` [${label}]` : ""}: ${js.slice(0, 120)}`);
+}
+
+function clickId(id) {
+  pwEvalVoid(`const el = document.getElementById(${JSON.stringify(id)}); if (!el) throw new Error('not found: #' + ${JSON.stringify(id)}); el.click();`);
+}
+
+function fillBubbleInput(id, value) {
+  pwEvalVoid(`
+    const el = document.getElementById(${JSON.stringify(id)});
+    if (!el) throw new Error('not found: #' + ${JSON.stringify(id)});
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, ${JSON.stringify(value)});
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  `);
+}
+
+function clickVisibleByIdIndex(id, index = 0) {
+  pwEvalVoid(`
+    const all = Array.from(document.querySelectorAll('#' + ${JSON.stringify(id)}));
+    const visible = all.filter((e) => e.offsetParent !== null);
+    if (!visible[${index}]) throw new Error('no visible #' + ${JSON.stringify(id)} + ' at index ' + ${index} + ' (total visible: ' + visible.length + ')');
+    visible[${index}].click();
+  `);
+}
+
+// ─── primitives (flow-agnostic) ────────────────────────────────────────────
+
+async function addTickets(mix) {
+  const sorted = [...mix].sort(
+    (a, b) => CANONICAL_TICKET_ORDER.indexOf(a.type) - CANONICAL_TICKET_ORDER.indexOf(b.type)
+  );
+  for (const entry of sorted) {
+    if (CANONICAL_TICKET_ORDER.indexOf(entry.type) < 0) {
+      throw new Error(`addTickets: unknown ticket type ${JSON.stringify(entry.type)}`);
+    }
+  }
+
+  const activated = new Set();
+  for (const entry of sorted) {
+    const stillAvailable = CANONICAL_TICKET_ORDER.filter((t) => !activated.has(t));
+    const addIdx = stillAvailable.indexOf(entry.type);
+
+    console.log(`[addTickets] activating ${entry.type} (qty ${entry.qty}) via visible #add idx ${addIdx}`);
+    clickVisibleByIdIndex("add", addIdx);
+
+    const expectedWidgets = activated.size + 1;
+    await waitFor(
+      `Array.from(document.querySelectorAll('#add-item')).filter(e => e.offsetParent !== null).length >= ${expectedWidgets}`,
+      { label: `${entry.type} add-item widget` }
+    );
+    await jitter();
+
+    const widgetIdx = activated.size;
+    for (let j = 1; j < entry.qty; j++) {
+      clickVisibleByIdIndex("add-item", widgetIdx);
+      await jitter();
+    }
+    activated.add(entry.type);
+  }
+}
+
+function fillContact({ name, email }) {
+  console.log(`[fillContact] name=${name} email=${email}`);
+  fillBubbleInput("main-full-name", name);
+  fillBubbleInput("main-email", email);
+}
+
+function completeStep1Consent() {
+  console.log("[completeStep1Consent] 'same for all' + 'authorized cardholder'");
+  clickId("contact-info-same");
+  pwEvalVoid(`
+    const el = Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group'))
+      .find((e) => e.textContent.includes('authorized cardholder'));
+    if (!el) throw new Error('authorized cardholder checkbox not found');
+    el.click();
+  `);
+}
+
+function toggleTerms() {
+  console.log("[toggleTerms] clicking inner <label>");
+  pwEvalVoid(`
+    const el = document.getElementById('toggle-terms');
+    const label = el.querySelector('label');
+    if (!label) throw new Error('no <label> inside #toggle-terms');
+    label.click();
+  `);
+}
+
+async function verifyTermsToggleOn() {
+  await sleep(500);
+  const first = pwEval(`(() => { const cb = document.querySelector('#toggle-terms input[type=checkbox]'); return cb ? cb.checked : false; })()`);
+  if (first === "true") return;
+
+  console.log("[verifyTermsToggleOn] toggle didn't flip on label — forcing checkbox.click()");
+  pwEvalVoid(`
+    const cb = document.querySelector('#toggle-terms input[type=checkbox]');
+    if (cb && !cb.checked) cb.click();
+  `);
+  await sleep(500);
+  const second = pwEval(`(() => { const cb = document.querySelector('#toggle-terms input[type=checkbox]'); return cb ? cb.checked : false; })()`);
+  if (second !== "true") {
+    throw new Error("verifyTermsToggleOn: terms toggle refused to flip via <label> and direct checkbox.click()");
+  }
+}
+
+function payAuthNet(card) {
+  console.log("[payAuthNet] filling hosted form");
+  const code = `
+    async (page) => {
+      await page.waitForSelector('#cardNum', { timeout: 30000, state: 'visible' });
+      await page.locator('#cardNum').click();
+      await page.locator('#cardNum').pressSequentially(${JSON.stringify(card.number)}, { delay: 40 });
+      await page.locator('#expiryDate').click();
+      await page.locator('#expiryDate').pressSequentially(${JSON.stringify(card.exp)}, { delay: 40 });
+      await page.locator('#cvv').click();
+      await page.locator('#cvv').pressSequentially(${JSON.stringify(card.cvv)}, { delay: 40 });
+      const lastName = page.locator('input[name="lastName"]');
+      await lastName.click({ clickCount: 3 });
+      await lastName.pressSequentially(${JSON.stringify(card.lastName)}, { delay: 30 });
+      await page.locator('input[name="zip"]').click();
+      await page.locator('input[name="zip"]').pressSequentially(${JSON.stringify(card.zip)}, { delay: 30 });
+      await page.locator('input[name="address"]').click();
+      await page.locator('input[name="address"]').pressSequentially(${JSON.stringify(card.address)}, { delay: 30 });
+      await page.locator('input[name="city"]').click();
+      await page.locator('input[name="city"]').pressSequentially(${JSON.stringify(card.city)}, { delay: 30 });
+      await page.locator('input[name="state"]').click();
+      await page.locator('input[name="state"]').pressSequentially(${JSON.stringify(card.state)}, { delay: 30 });
+      await page.locator('button:has-text("Pay")').first().click();
+      await page.waitForSelector('button:has-text("Continue")', { timeout: 45000, state: 'visible' });
+      await page.locator('button:has-text("Continue")').first().click();
+    }
+  `;
+  const out = pw("run-code", code);
+  if (/"err"\s*:/.test(out) || /TimeoutError|Error:/.test(out)) {
+    throw new Error("payAuthNet: run-code reported an error:\n" + out.split("\n").slice(0, 20).join("\n"));
+  }
+}
+
+async function waitForSuccess() {
+  try {
+    const state = pwEval(`({ url: location.href, title: document.title, sample: (document.body && document.body.innerText || '').slice(0, 300) })`);
+    console.log(`[waitForSuccess] post-authnet state: ${state}`);
+  } catch { /* debug-only */ }
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('*')).find(e => /Purchase Completed|Order Confirmed/i.test(e.textContent || ''))`,
+    { timeoutMs: 45000, label: "success heading" }
+  );
+}
+
+async function reconcileOrderByEmail(email, eventId) {
+  const { searchThings } = require("../../config/bubbleClient");
+  const orders = await searchThings("gp_order", [
+    { key: "Event", constraint_type: "equals", value: eventId }
+  ]);
+  const mine = orders
+    .filter((o) => (o["Email Address"] || "").toLowerCase() === email.toLowerCase())
+    .sort((a, b) => new Date(b["Created Date"]) - new Date(a["Created Date"]));
+  return mine[0] || null;
+}
+
+// ─── flow sequencer: guest-checkout ────────────────────────────────────────
+
+async function runGuestFlow(spec) {
+  const started = Date.now();
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+
+  console.log(`${tag} cleaning session`);
+  try { pw("delete-data"); } catch { /* first-run no-op */ }
+
+  console.log(`${tag} opening event page (${HEADED ? "headed" : "headless"}) at ${VIEWPORT_WIDTH}x${VIEWPORT_HEIGHT}`);
+  if (HEADED) pw("open", spec.event.url, "--headed");
+  else pw("open", spec.event.url);
+  try { pw("resize", String(VIEWPORT_WIDTH), String(VIEWPORT_HEIGHT)); } catch { /* resize can fail on some platforms */ }
+  pw("run-code", `async (page) => { await page.setViewportSize({ width: ${VIEWPORT_WIDTH}, height: ${VIEWPORT_HEIGHT} }); }`);
+  await waitFor(`!!document.getElementById('gp-test-tickets-button')`, { label: "landing Tickets button" });
+  await jitter();
+
+  console.log(`${tag} opening tickets view`);
+  clickId("gp-test-tickets-button");
+  await waitFor(`Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`, { label: "tickets view ADD" });
+  await jitter();
+
+  await addTickets(spec.tickets);
+
+  console.log(`${tag} PROCEED TO CHECKOUT`);
+  clickId("gp-test-proceed-to-checkout");
+  await waitFor(`!!document.getElementById('main-full-name')`, { timeoutMs: 15000, label: "Step 1 form" });
+  await sleep(800);
+
+  console.log(`${tag} Step 1 — contact + consent`);
+  fillContact(spec.contact);
+  await jitter();
+  completeStep1Consent();
+  await jitter();
+
+  console.log(`${tag} CONTINUE AS GUEST`);
+  clickId("continue-as-guest");
+  await waitFor(`!!document.getElementById('toggle-terms') && !!document.getElementById('complete-order-authnet')`, { timeoutMs: 15000, label: "Step 2" });
+  await sleep(1200);
+
+  console.log(`${tag} Step 2 — terms toggle`);
+  toggleTerms();
+  await verifyTermsToggleOn();
+
+  console.log(`${tag} PAY NOW → Authorize.net`);
+  clickId("complete-order-authnet");
+  await sleep(3000);
+  payAuthNet(spec.card);
+
+  console.log(`${tag} waiting for success heading`);
+  await waitForSuccess();
+
+  const elapsed = Date.now() - started;
+  if (elapsed < MIN_ORDER_MS) {
+    const rem = MIN_ORDER_MS - elapsed;
+    console.log(`${tag} padding ${rem}ms to hit ${MIN_ORDER_MS}ms floor`);
+    await sleep(rem);
+  }
+
+  console.log(`${tag} closing session`);
+  try { pw("close"); } catch { /* already closed */ }
+  try { pw("delete-data"); } catch {}
+
+  console.log(`${tag} resolving Bubble order ID by contact email`);
+  await sleep(8000);
+  const order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
+  if (!order) throw new Error(`no gp_order found for email ${spec.contact.email}`);
+  return { order, wallMs: Date.now() - started };
+}
+
+// ─── dispatch ──────────────────────────────────────────────────────────────
+
+const FLOW_SEQUENCERS = {
+  "guest-checkout": runGuestFlow
+};
+
+async function runOrder(spec) {
+  if (!spec.session) throw new Error("runOrder: spec.session missing (loadSpec sets this)");
+  SESSION = spec.session;
+
+  const flow = FLOW_SEQUENCERS[spec.flow];
+  if (!flow) {
+    throw new Error(`no sequencer for flow ${JSON.stringify(spec.flow)} (known: ${Object.keys(FLOW_SEQUENCERS).join(", ")})`);
+  }
+
+  const { order, wallMs } = await flow(spec);
+
+  const total = Number(order["Total Order Value"]);
+  const wallSec = (wallMs / 1000).toFixed(1);
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+  console.log(`${tag} SUCCESS`);
+  console.log(`  orderId:      ${order._id}`);
+  console.log(`  total:        $${total.toFixed(2)} (expected $${spec.expectedTotal.toFixed(2)})`);
+  console.log(`  wall time:    ${wallSec}s`);
+  if (Math.abs(total - spec.expectedTotal) > 0.02) {
+    console.error(`${tag} WARN — total mismatch`);
+    process.exit(2);
+  }
+  return { order, total, wallMs };
+}
+
+// ─── spec loading ──────────────────────────────────────────────────────────
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function substituteTemplate(tpl, vars) {
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+}
+
+function enrichSpec(rawSpec, { defaults = {}, state = null } = {}) {
+  if (typeof rawSpec.orderNumber !== "number") throw new Error("spec: orderNumber must be a number");
+  const T = Date.now();
+  const N = pad2(rawSpec.orderNumber);
+
+  const card = rawSpec.card || defaults.card || null;
+  if (!card) throw new Error("spec: missing card (no spec.card and no defaults.card)");
+
+  const event = (state && state.event) || rawSpec.event;
+  if (!event || !event.url || !event.id) {
+    throw new Error("spec: missing event info — expected state.event or spec.event with { url, id }");
+  }
+
+  if (!rawSpec.contact || !rawSpec.contact.name || !rawSpec.contact.email) {
+    throw new Error("spec: contact.name and contact.email are required");
+  }
+
+  return {
+    ...rawSpec,
+    session: `gp-order-${N}`,
+    event,
+    card,
+    contact: {
+      name: substituteTemplate(rawSpec.contact.name, { N, T }),
+      email: substituteTemplate(rawSpec.contact.email, { N, T })
+    }
+  };
+}
+
+function loadSpec({ order, specPath } = {}) {
+  const root = path.join(__dirname, "..");
+
+  if (specPath) {
+    const raw = JSON.parse(fs.readFileSync(specPath, "utf8"));
+    // ad-hoc spec file: no defaults/state merging by convention, caller provides a complete spec
+    return enrichSpec(raw, {});
+  }
+
+  const ordersPath = path.join(root, "orders.json");
+  const statePath = path.join(root, "e2e-state.json");
+  const orders = JSON.parse(fs.readFileSync(ordersPath, "utf8"));
+  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const raw = orders.orders.find((o) => o.orderNumber === order);
+  if (!raw) throw new Error(`no spec for order #${order} in ${ordersPath}`);
+  return enrichSpec(raw, { defaults: orders.defaults || {}, state });
+}
+
+// ─── CLI ───────────────────────────────────────────────────────────────────
+
+function parseArgs(argv) {
+  const args = { order: null, spec: null };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--order") args.order = parseInt(argv[++i], 10);
+    else if (argv[i] === "--spec") args.spec = argv[++i];
+    else if (argv[i] === "--help" || argv[i] === "-h") {
+      console.log("usage: run-order.js --order <N>");
+      console.log("       run-order.js --spec <path-to-json>");
+      process.exit(0);
+    }
+  }
+  if (args.order == null && !args.spec) {
+    throw new Error("usage: run-order.js --order <N> | --spec <path>");
+  }
+  return args;
+}
+
+if (require.main === module) {
+  const args = parseArgs(process.argv.slice(2));
+  const spec = loadSpec({ order: args.order, specPath: args.spec });
+  runOrder(spec).catch((err) => {
+    console.error(`[order-${pad2(spec.orderNumber)}] FAIL:`, err.message);
+    console.error("  (browser left open for inspection; run `playwright-cli close-all` to clean up)");
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  runOrder,
+  loadSpec,
+  // primitives — exported for reuse by PR 3 fragments and PR 4+ sequencers
+  primitives: {
+    addTickets,
+    fillContact,
+    completeStep1Consent,
+    toggleTerms,
+    verifyTermsToggleOn,
+    payAuthNet,
+    waitForSuccess,
+    reconcileOrderByEmail
+  },
+  sequencers: FLOW_SEQUENCERS
+};

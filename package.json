@@ -7,6 +7,7 @@
     "test:watch": "jest --watch --config=config/jest.config.js",
     "e2e:preflight": "node e2e-gp-testing/scripts/preflight.js",
     "e2e:run-order": "node e2e-gp-testing/scripts/run-order-deterministic.js",
+    "e2e:order": "node e2e-gp-testing/scripts/run-order.js",
     "e2e:run-all": "node e2e-gp-testing/scripts/run-all.js",
     "e2e:reconcile": "node e2e-gp-testing/scripts/reconcile.js"
   },

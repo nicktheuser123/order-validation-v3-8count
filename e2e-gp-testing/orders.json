@@ -1,0 +1,33 @@
+{
+  "$schema": "spec for deterministic order runs — consumed by scripts/run-order.js",
+  "defaults": {
+    "card": {
+      "number": "4007000000027",
+      "exp": "0427",
+      "cvv": "123",
+      "lastName": "TestUser",
+      "zip": "10001",
+      "address": "123 Test Street",
+      "city": "New York",
+      "state": "NY"
+    }
+  },
+  "orders": [
+    {
+      "orderNumber": 3,
+      "flow": "guest-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 3 },
+        { "type": "Premium", "qty": 2 }
+      ],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 03",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": 383.40,
+      "specialChars": false,
+      "user": null
+    }
+  ]
+}
