@@ -21,6 +21,9 @@ order*-*.yml
 # (discovery-<flow>.json files are tracked — they're the authoritative
 # observation logs the runner depends on, not scratch output.)
 e2e-gp-testing/heal.log
+
+# Claude Code internals
+.claude/scheduled_tasks.lock
 e2e-gp-testing/.order-*-done.json
 e2e-gp-testing/.setup-done-*
 e2e-gp-testing/.worker-common.md

@@ -63,7 +63,9 @@
       "Bash(pkill -f \"reverify-recording\")",
       "Bash(pkill -f \"playwright\")",
       "Bash(pkill -f \"node -e\")",
-      "Bash(pkill -f \"chromium\")"
+      "Bash(pkill -f \"chromium\")",
+      "Bash(git rm *)",
+      "Bash(rm -f .claude/scheduled_tasks.lock)"
     ]
   }
 }
