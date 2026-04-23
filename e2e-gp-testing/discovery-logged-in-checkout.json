@@ -1,0 +1,26 @@
+{
+  "flow": "logged-in-checkout",
+  "version": "81rkv",
+  "capturedAt": null,
+  "status": "PENDING_DISCOVERY",
+  "representativeOrder": {
+    "orderNumber": 6,
+    "scenario": "Standard × 5, FLAT10 promo, Logged-in (User A)"
+  },
+  "_todo": [
+    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
+    "Session name: -s=gp-discovery-logged-in-checkout.",
+    "Seed: Order #6 (Standard × 5, FLAT10, User A).",
+    "Capture selectors needed by the scaffolded primitives in run-order.js:",
+    "  - loginViaPopup: top-right Login link in tickets view; popup email field; popup password field; LOG IN button; post-login state signal (Login link gone?).",
+    "  - applyPromoOnTickets: ENTER PROMO CODE link at bottom of tickets page; promo input field; submit/apply button; what to wait on for cart subtotal update.",
+    "  - fragmentStep1Contact loggedIn mode: does the form auto-fill? What's the exit button (CONTINUE? PROCEED TO PAYMENT? different from CONTINUE AS GUEST)?",
+    "  - addPaymentMethod: '+ Add Payment Method' button ID on Step 2. SAVE button selector on customer/addPayment (likely button:has-text('Save')).",
+    "Then set capturedAt to the ISO run timestamp and fill in steps[] following the same schema as discovery-guest-checkout.json.",
+    "Promote any newGotchas entries into the Gotchas Registry at the bottom of runbook.md."
+  ],
+  "steps": [],
+  "missingIdsOnStep1": [],
+  "step2DisplayIdsMissing": [],
+  "newGotchas": []
+}

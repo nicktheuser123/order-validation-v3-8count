@@ -226,6 +226,75 @@ async function reconcileOrderByEmail(email, eventId) {
   return mine[0] || null;
 }
 
+// ─── primitives awaiting discovery (stubs) ─────────────────────────────────
+// These primitives have documented business logic in runbook.md (Phase 2 flow
+// descriptions + Gotchas Registry) but their specific element IDs and selectors
+// have not been captured by a discovery run yet. They throw with clear pointers
+// so the failure mode is "run discovery", not "debug mystery silent no-op".
+
+/**
+ * Open the login popup from the tickets-view header (the Login link does NOT
+ * appear on the landing view — runbook § Login & Signup), fill email + password,
+ * click LOG IN, wait for the popup to close and logged-in state to settle.
+ * Caller must already be on the tickets view when this is invoked.
+ *
+ * Needs discovery: top-right Login link selector; popup email/password field
+ * IDs; LOG IN button ID; post-login state signal (Login link gone? Avatar?).
+ */
+async function loginViaPopup(/* creds */) {
+  throw new Error(
+    "loginViaPopup: not implemented — selectors need discovery. " +
+    "Run the Phase 0 discovery agent for logged-in-checkout (see runbook § Phase 0), " +
+    "populate discovery-logged-in-checkout.json, then fill in this primitive."
+  );
+}
+
+/**
+ * Apply a promo code on the tickets page — runbook line 242:
+ *   "click ENTER PROMO CODE at the bottom → enter code → submit/apply".
+ * Called from fragmentTicketSelection when spec.promo is set, BEFORE
+ * PROCEED TO CHECKOUT.
+ *
+ * Needs discovery: ENTER PROMO CODE link ID; promo input field ID; submit
+ * button ID; how the cart subtotal updates (what to wait on).
+ */
+async function applyPromoOnTickets(/* code */) {
+  throw new Error(
+    "applyPromoOnTickets: not implemented — selectors need discovery. " +
+    "This primitive is shared across every flow that uses a promo (orders " +
+    "#6-10, #11, #12, #14, #15, #17, #18, #19, #20). Discover once from any of " +
+    "those flows' Phase 0 run and this primitive lights up for all of them."
+  );
+}
+
+/**
+ * Authorize.net "+ Add Payment Method" detour. First order for a given
+ * logged-in user with no saved card: PAY NOW is inert. See Gotchas Registry
+ * "Authorize.net: Add Payment Method detour...". The detour:
+ *   1. Click + Add Payment Method on Step 2 (needs discovery for its ID).
+ *   2. Redirected to Authorize.net customer/addPayment (not payment/payment).
+ *   3. Fill card + billing with pressSequentially — same pattern as payAuthNet.
+ *   4. Click SAVE (not Pay) — selector very likely button:has-text("Save").
+ *   5. Return to Step 2. Terms toggle RESETS — caller must reToggleTerms().
+ *
+ * Needs discovery: + Add Payment Method button ID on Step 2.
+ */
+async function addPaymentMethod(/* card */) {
+  throw new Error(
+    "addPaymentMethod: not implemented — the '+ Add Payment Method' button on " +
+    "Step 2 needs its ID captured via discovery. Body can reuse payAuthNet's " +
+    "pressSequentially pattern (Authorize.net fields are identical on the " +
+    "customer/addPayment page); SAVE replaces Pay."
+  );
+}
+
+/** Re-flip the terms toggle after a round-trip that resets it (addPayment detour). */
+async function reToggleTerms() {
+  console.log("[reToggleTerms] re-flipping after round-trip");
+  toggleTerms();
+  await verifyTermsToggleOn();
+}
+
 // ─── setup / teardown primitives (shared by all flows) ─────────────────────
 
 /**
@@ -275,23 +344,34 @@ async function closeAndReconcile(spec, startedMs) {
 // ─── fragments (reusable mid-level compositions) ───────────────────────────
 
 /**
- * Tickets view: open, add the ticket mix, (future: applyPromoOnTickets +
- * waitForCartSubtotal), proceed to Step 1. Shared by every flow that drives
- * a purchase — guest, logged-in, register-in-checkout, etc.
+ * Tickets view: open (unless caller is already there), add the ticket mix,
+ * apply promo if any, proceed to Step 1. Shared by every flow that drives a
+ * purchase — guest, logged-in, register-in-checkout, etc.
+ *
+ * @param {object} spec - the order spec
+ * @param {object} opts
+ * @param {boolean} opts.alreadyOnTicketsView - caller already navigated to
+ *   the tickets view (e.g. logged-in flows login from the tickets-view header).
  */
-async function fragmentTicketSelection(spec) {
+async function fragmentTicketSelection(spec, { alreadyOnTicketsView = false } = {}) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
-  console.log(`${tag} opening tickets view`);
-  clickId("gp-test-tickets-button");
-  await waitFor(
-    `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
-    { label: "tickets view ADD" }
-  );
-  await jitter();
+
+  if (!alreadyOnTicketsView) {
+    console.log(`${tag} opening tickets view`);
+    clickId("gp-test-tickets-button");
+    await waitFor(
+      `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
+      { label: "tickets view ADD" }
+    );
+    await jitter();
+  }
 
   await addTickets(spec.tickets);
 
-  // TODO(promo, PR 4+): if (spec.promo) { await applyPromoOnTickets(spec.promo); await waitForCartSubtotal(...); }
+  if (spec.promo) {
+    console.log(`${tag} applying promo ${spec.promo}`);
+    await applyPromoOnTickets(spec.promo);
+  }
 
   console.log(`${tag} PROCEED TO CHECKOUT`);
   clickId("gp-test-proceed-to-checkout");
@@ -366,10 +446,44 @@ async function runGuestFlow(spec) {
   return await closeAndReconcile(spec, started);
 }
 
+// ─── flow sequencer: logged-in-checkout ────────────────────────────────────
+// Scaffolded; requires discovery for loginViaPopup, applyPromoOnTickets,
+// addPaymentMethod, and the loggedIn-mode exit of fragmentStep1Contact.
+
+async function runLoggedInFlow(spec) {
+  if (!spec.user) {
+    throw new Error("runLoggedInFlow: spec.user is required (string id 'A'/'B'/'C' resolved to guestUsers entry in enrichSpec)");
+  }
+  const started = Date.now();
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+
+  await openEventPage(spec);
+
+  // The Login link only appears inside the tickets view (runbook § Login & Signup).
+  console.log(`${tag} opening tickets view (for login link)`);
+  clickId("gp-test-tickets-button");
+  await waitFor(
+    `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
+    { label: "tickets view ADD" }
+  );
+  await jitter();
+
+  console.log(`${tag} logging in as User ${spec.user.id} (${spec.user.email})`);
+  await loginViaPopup({ email: spec.user.email, password: spec.user.password });
+
+  // Already on tickets view — skip the Tickets-button click in the fragment.
+  await fragmentTicketSelection(spec, { alreadyOnTicketsView: true });
+  await fragmentStep1Contact(spec, { mode: "loggedIn" });
+  await fragmentStep2Pay(spec); // handles the addPaymentMethod detour internally
+
+  return await closeAndReconcile(spec, started);
+}
+
 // ─── dispatch ──────────────────────────────────────────────────────────────
 
 const FLOW_SEQUENCERS = {
-  "guest-checkout": runGuestFlow
+  "guest-checkout": runGuestFlow,
+  "logged-in-checkout": runLoggedInFlow
 };
 
 async function runOrder(spec) {
@@ -388,9 +502,13 @@ async function runOrder(spec) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
   console.log(`${tag} SUCCESS`);
   console.log(`  orderId:      ${order._id}`);
-  console.log(`  total:        $${total.toFixed(2)} (expected $${spec.expectedTotal.toFixed(2)})`);
+  if (spec.expectedTotal == null) {
+    console.log(`  total:        $${total.toFixed(2)} (spec.expectedTotal is null — first run; copy this value back into orders.json)`);
+  } else {
+    console.log(`  total:        $${total.toFixed(2)} (expected $${spec.expectedTotal.toFixed(2)})`);
+  }
   console.log(`  wall time:    ${wallSec}s`);
-  if (Math.abs(total - spec.expectedTotal) > 0.02) {
+  if (spec.expectedTotal != null && Math.abs(total - spec.expectedTotal) > 0.02) {
     console.error(`${tag} WARN — total mismatch`);
     process.exit(2);
   }
@@ -422,6 +540,18 @@ function enrichSpec(rawSpec, { defaults = {}, state = null } = {}) {
     throw new Error("spec: contact.name and contact.email are required");
   }
 
+  // Resolve user reference (string id like "A") against state.guestUsers.
+  let user = rawSpec.user;
+  if (typeof user === "string") {
+    const found = state && Array.isArray(state.guestUsers)
+      ? state.guestUsers.find((g) => g.id === user)
+      : null;
+    if (!found) {
+      throw new Error(`spec: user '${user}' not found in state.guestUsers (required for ${rawSpec.flow})`);
+    }
+    user = found;
+  }
+
   return {
     ...rawSpec,
     session: `gp-order-${N}`,
@@ -430,7 +560,8 @@ function enrichSpec(rawSpec, { defaults = {}, state = null } = {}) {
     contact: {
       name: substituteTemplate(rawSpec.contact.name, { N, T }),
       email: substituteTemplate(rawSpec.contact.email, { N, T })
-    }
+    },
+    user
   };
 }
 
@@ -494,7 +625,12 @@ module.exports = {
     waitForSuccess,
     reconcileOrderByEmail,
     openEventPage,
-    closeAndReconcile
+    closeAndReconcile,
+    // Scaffolded (discovery pending)
+    loginViaPopup,
+    applyPromoOnTickets,
+    addPaymentMethod,
+    reToggleTerms
   },
   fragments: {
     fragmentTicketSelection,

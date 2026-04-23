@@ -28,6 +28,38 @@
       "expectedTotal": 383.40,
       "specialChars": false,
       "user": null
+    },
+    {
+      "orderNumber": 6,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 5 }
+      ],
+      "promo": "FLAT10",
+      "contact": {
+        "name": "GP Det 06",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "A",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 7,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Premium", "qty": 3 }
+      ],
+      "promo": "PCT20",
+      "contact": {
+        "name": "GP Det 07",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "A",
+      "discoveryPending": true
     }
   ]
 }
