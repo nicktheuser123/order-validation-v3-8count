@@ -338,12 +338,13 @@ await page.locator('button:has-text("Continue")').first().click();
 
 ---
 
-### Browser session: headless breaks Bubble ticket-card transitions
+### Browser session: headless needs an explicit viewport
 
-**Symptom:** `HEADED=false npm run e2e:run-order` fails at step 2: after clicking the Standard `#add` button, the `#add-item` quantity widget never renders. `waitFor timeout [Standard add-item widget]`.
-**Cause:** Bubble's card → quantity-widget transition depends on layout/visibility state that a headless Chromium without a real viewport doesn't produce. Elements may exist in the DOM but `offsetParent !== null` fails, so `clickVisibleByIdIndex` misses them.
-**Fix:** Run headed (`HEADED=true`, the runner's default per `feedback_headed_browser.md`). Headless is not supported for purchase flows against this Bubble app. If you need a CI-friendly mode, consider `xvfb` or Playwright's `headless: "new"` via the `page.context()` — not currently wired.
-**Source:** Order #3 re-run attempt, 2026-04-22.
+**Symptom:** Pre-fix `HEADED=false npm run e2e:run-order` hung at step 2 — after clicking Standard `#add`, the `#add-item` quantity widget existed in the DOM but `offsetParent === null`, so `clickVisibleByIdIndex` couldn't find it. `waitFor timeout [Standard add-item widget]`.
+**Cause:** `playwright-cli open` ships no `--viewport` / `--window-size` flag. Headless Chromium's default viewport is too narrow for the Bubble ticket-card transitions on this event page, so the responsive layout kept `#add-item` offscreen / collapsed.
+**Fix:** After `pw("open", ...)` the runner now pins the viewport via `pw("resize", W, H)` + `pw("run-code", "async page => page.setViewportSize({ width, height })")`. Defaults are 1440×900; override with `VIEWPORT_WIDTH` / `VIEWPORT_HEIGHT` env vars. `setViewportSize` is the one that drives layout in headless; `resize` keeps the headed window consistent.
+**Verified:** `HEADED=false npm run e2e:run-order` placed Order #3 at $383.40 in ~107s on 2026-04-23.
+**Source:** Order #3 re-run, 2026-04-22; headless fix, 2026-04-23.
 
 ### Browser session: every `playwright-cli` call needs `-s=<name>` in Phase 2
 

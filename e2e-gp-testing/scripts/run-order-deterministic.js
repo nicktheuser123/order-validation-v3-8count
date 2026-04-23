@@ -33,6 +33,11 @@ const EXPECTED_TOTAL = 383.40;
 const MIN_ORDER_MS = 25000;
 // HEADED=false (env) → headless. Default headed (per feedback_headed_browser.md).
 const HEADED = process.env.HEADED !== "false";
+// Headless Chromium's default viewport is too small for Bubble's ticket-card
+// transitions — the #add-item widget stays offsetParent=null. Force a desktop
+// viewport in both modes so layout is deterministic. Override via env.
+const VIEWPORT_WIDTH = parseInt(process.env.VIEWPORT_WIDTH || "1440", 10);
+const VIEWPORT_HEIGHT = parseInt(process.env.VIEWPORT_HEIGHT || "900", 10);
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -117,9 +122,13 @@ async function run() {
   console.log("[run-order-03] cleaning session");
   try { pw("delete-data"); } catch { /* first-run no-op */ }
 
-  console.log(`[run-order-03] opening event page (${HEADED ? "headed" : "headless"})`);
+  console.log(`[run-order-03] opening event page (${HEADED ? "headed" : "headless"}) at ${VIEWPORT_WIDTH}x${VIEWPORT_HEIGHT}`);
   if (HEADED) pw("open", EVENT_URL, "--headed");
   else pw("open", EVENT_URL);
+  // Pin the window and the Playwright viewport. setViewportSize is what drives
+  // CSS/layout in headless; resize keeps the headed window consistent too.
+  try { pw("resize", String(VIEWPORT_WIDTH), String(VIEWPORT_HEIGHT)); } catch { /* resize can fail on some platforms; viewport below is the critical one */ }
+  pw("run-code", `async (page) => { await page.setViewportSize({ width: ${VIEWPORT_WIDTH}, height: ${VIEWPORT_HEIGHT} }); }`);
   // Bubble's landing view — wait for the Tickets button to exist
   await waitFor(`!!document.getElementById('gp-test-tickets-button')`, { label: "landing Tickets button" });
   await jitter();
