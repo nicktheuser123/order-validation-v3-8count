@@ -1,0 +1,23 @@
+{
+  "flow": "guest-to-register-checkout",
+  "version": "81rkv",
+  "capturedAt": null,
+  "status": "PENDING_DISCOVERY",
+  "representativeOrder": {
+    "orderNumber": 13,
+    "scenario": "Standard×3 + Premium Unlimited×3, no promo, User D created mid-checkout"
+  },
+  "_todo": [
+    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
+    "Session name: -s=gp-discovery-guest-to-register-checkout.",
+    "Seed: Order #13 (Standard×3 + Premium Unlimited×3, no promo, User D).",
+    "Focus primitives (all stubbed in run-order.js):",
+    "  - registerInCheckout: REGISTER & SAVE INFO button ID on Step 1 (replaces CONTINUE AS GUEST for this flow); password + confirm password input IDs in the sub-form; submit mechanism.",
+    "  - Step 2 afterwards — does the logged-in-user addPaymentMethod detour apply for brand-new users? Likely yes (no saved card).",
+    "Then fill steps[] per the guest-checkout schema and promote any newGotchas into the Gotchas Registry."
+  ],
+  "steps": [],
+  "missingIdsOnStep1": [],
+  "step2DisplayIdsMissing": [],
+  "newGotchas": []
+}

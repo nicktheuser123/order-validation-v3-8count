@@ -295,6 +295,66 @@ async function reToggleTerms() {
   await verifyTermsToggleOn();
 }
 
+/**
+ * $0-order payment. Bubble replaces PAY NOW with a "COMPLETE ORDER 0$" button
+ * (no Authorize.net redirect) for PCT100/FLAT1000-zeroed totals. See Gotchas
+ * Registry "$0 orders: COMPLETE ORDER 0$ button replaces PAY NOW".
+ *
+ * Needs discovery: the zero-order button's ID and exact text. Seed: Order #12
+ * (Premium×2 + FLAT1000 = $0).
+ */
+async function payZero() {
+  throw new Error(
+    "payZero: not implemented — the 'COMPLETE ORDER 0$' button on Step 2 for " +
+    "$0 orders needs its ID captured via discovery. Seed: Order #12."
+  );
+}
+
+/**
+ * Create a new account via the login popup: click Login (top-right of tickets
+ * view) → click SIGN UP in the popup → fill email + password + confirm-password
+ * → submit. Used by Setup agents (pre-creating Users A/B/C) and by the
+ * guest-to-register-checkout flow for Users D/E/F.
+ *
+ * Needs discovery: SIGN UP button in popup; signup form email/password/confirm
+ * field IDs; signup submit button.
+ */
+async function registerViaPopup(/* creds */) {
+  throw new Error(
+    "registerViaPopup: not implemented — the popup SIGN UP form needs discovery. " +
+    "Shared by Setup agents and guest-to-register-checkout."
+  );
+}
+
+/**
+ * Mid-checkout register (called from Step 1): click REGISTER & SAVE INFO (not
+ * CONTINUE AS GUEST), fill password + confirm, submit. Contact name/email are
+ * already in the Step 1 form — signup sub-form asks only for credentials.
+ *
+ * Needs discovery: REGISTER & SAVE INFO button ID; password + confirm input
+ * IDs in the sub-form; how the sub-form submits (same button? different one?).
+ */
+async function registerInCheckout(/* { password } */) {
+  throw new Error(
+    "registerInCheckout: not implemented — Step 1 signup sub-form needs discovery."
+  );
+}
+
+/**
+ * Register-to-Login UX: open the login popup, click SIGN UP to reach the
+ * signup form, then click OR LOGIN (a button, not a link — runbook § Login &
+ * Signup) to return to the login form, then fill creds and LOG IN.
+ * Simulates a user who accidentally clicks SIGN UP and bails.
+ *
+ * Needs discovery: the OR LOGIN button selector on the signup form.
+ */
+async function loginViaPopupWithSignupDetour(/* creds */) {
+  throw new Error(
+    "loginViaPopupWithSignupDetour: not implemented — the signup form's OR LOGIN " +
+    "button needs discovery. See runbook § Login & Signup."
+  );
+}
+
 // ─── setup / teardown primitives (shared by all flows) ─────────────────────
 
 /**
@@ -397,9 +457,18 @@ async function fragmentStep1Contact(spec, { mode }) {
     console.log(`${tag} CONTINUE AS GUEST`);
     clickId("continue-as-guest");
   } else if (mode === "register") {
-    throw new Error("fragmentStep1Contact: mode=register not yet implemented (PR 4+)");
+    console.log(`${tag} REGISTER & SAVE INFO (mid-checkout signup for User ${spec.user && spec.user.id})`);
+    const password = spec.user && spec.user.password;
+    if (!password) throw new Error("fragmentStep1Contact(register): spec.user.password required");
+    await registerInCheckout({ password });
   } else if (mode === "loggedIn") {
-    throw new Error("fragmentStep1Contact: mode=loggedIn not yet implemented (PR 4)");
+    // Pre-filled contact info still needs consent checkboxes flipped. The exit
+    // button differs from CONTINUE AS GUEST — needs discovery. Until then, let
+    // the unknown-selector failure point here.
+    throw new Error(
+      "fragmentStep1Contact(loggedIn): the Step-1 exit button for logged-in " +
+      "users needs discovery. Run the Phase 0 discovery agent for logged-in-checkout."
+    );
   } else {
     throw new Error(`fragmentStep1Contact: unknown mode ${JSON.stringify(mode)}`);
   }
@@ -412,10 +481,12 @@ async function fragmentStep1Contact(spec, { mode }) {
 }
 
 /**
- * Step 2: terms toggle (with verify + fallback), then pay. For the current
- * guest-checkout-no-promo scope this always goes through payAuthNet. Branches
- * for $0 orders (COMPLETE ORDER 0$) and the first-order-per-logged-in-user
- * addPaymentMethod detour land in PR 4+.
+ * Step 2: terms toggle (with verify + fallback), then pay. Branches on:
+ *   - $0 orders (PCT100 / FLAT1000 zeroed): feature-detect the COMPLETE ORDER
+ *     0$ button and call payZero (no Authorize.net redirect).
+ *   - Normal orders: PAY NOW → Authorize.net. Logged-in users without a saved
+ *     card hit the customer/addPayment detour — handled by post-click URL
+ *     detection once addPaymentMethod is discovered.
  */
 async function fragmentStep2Pay(spec) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
@@ -423,12 +494,30 @@ async function fragmentStep2Pay(spec) {
   toggleTerms();
   await verifyTermsToggleOn();
 
-  // TODO($0, PR 4+): detect zero-order button → payZero() instead of PAY NOW + authnet.
+  // Feature-detect $0 flow: the Step 2 button text swaps from PAY NOW to
+  // "COMPLETE ORDER 0$". spec.expectedTotal is unreliable (PCT100 may not zero
+  // service fees + tax), so let the DOM decide.
+  const zeroButtonPresent = pwEval(
+    `!!Array.from(document.querySelectorAll('button, [role=button], .clickable-element'))
+      .find(e => /COMPLETE ORDER\\s*0\\$/i.test(e.textContent || ''))`
+  );
+  const normalButtonPresent = pwEval(`!!document.getElementById('complete-order-authnet')`);
+
+  if (zeroButtonPresent === "true" && normalButtonPresent !== "true") {
+    console.log(`${tag} $0 flow detected — payZero (skipping Authorize.net)`);
+    await payZero();
+    console.log(`${tag} waiting for success heading`);
+    await waitForSuccess();
+    return;
+  }
+
   console.log(`${tag} PAY NOW → Authorize.net`);
   clickId("complete-order-authnet");
   await sleep(3000);
 
-  // TODO(addPayment, PR 4): detect customer/addPayment landing → addPaymentMethod + reToggleTerms + retry.
+  // TODO(addPayment, PR 4): detect customer/addPayment landing → addPaymentMethod
+  // + reToggleTerms + retry. Until addPaymentMethod is discovered, first-order
+  // logged-in flows will fail here with an Authorize.net timeout.
   payAuthNet(spec.card);
 
   console.log(`${tag} waiting for success heading`);
@@ -479,11 +568,104 @@ async function runLoggedInFlow(spec) {
   return await closeAndReconcile(spec, started);
 }
 
+// ─── flow sequencer: guest-to-register-checkout ────────────────────────────
+// Add tickets as guest → Step 1 contact info → REGISTER & SAVE INFO (creates
+// account mid-checkout) → Step 2. Used for Users D/E/F.
+
+async function runGuestRegisterFlow(spec) {
+  if (!spec.user) {
+    throw new Error("runGuestRegisterFlow: spec.user is required (the user being created mid-checkout)");
+  }
+  const started = Date.now();
+  await openEventPage(spec);
+  await fragmentTicketSelection(spec);
+  await fragmentStep1Contact(spec, { mode: "register" }); // calls registerInCheckout internally (PR 5 stub)
+  await fragmentStep2Pay(spec);
+  return await closeAndReconcile(spec, started);
+}
+
+// ─── flow sequencer: guest-to-login-top-right ──────────────────────────────
+// Open tickets view → add tickets → click Login top-right → authenticate →
+// proceed to checkout as that user. Differs from logged-in-checkout because
+// the user adds tickets FIRST, then logs in — login carries the cart forward.
+
+async function runGuestLoginTopRightFlow(spec) {
+  if (!spec.user) {
+    throw new Error("runGuestLoginTopRightFlow: spec.user is required");
+  }
+  const started = Date.now();
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+
+  await openEventPage(spec);
+
+  console.log(`${tag} opening tickets view`);
+  clickId("gp-test-tickets-button");
+  await waitFor(
+    `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
+    { label: "tickets view ADD" }
+  );
+  await jitter();
+
+  // Add tickets + promo BEFORE login (cart carries through login per runbook).
+  await addTickets(spec.tickets);
+  if (spec.promo) {
+    console.log(`${tag} applying promo ${spec.promo}`);
+    await applyPromoOnTickets(spec.promo);
+  }
+
+  console.log(`${tag} logging in as User ${spec.user.id} (top-right popup)`);
+  await loginViaPopup({ email: spec.user.email, password: spec.user.password });
+
+  // After login the user is still on tickets view with the cart intact. Proceed.
+  console.log(`${tag} PROCEED TO CHECKOUT`);
+  clickId("gp-test-proceed-to-checkout");
+  await waitFor(`!!document.getElementById('main-full-name')`, { timeoutMs: 15000, label: "Step 1 form" });
+  await sleep(800);
+
+  await fragmentStep1Contact(spec, { mode: "loggedIn" });
+  await fragmentStep2Pay(spec);
+  return await closeAndReconcile(spec, started);
+}
+
+// ─── flow sequencer: register-to-login-checkout ────────────────────────────
+// Exercises the Login → SIGN UP → OR LOGIN detour (user opens signup by
+// mistake, bails back to login) before proceeding as a logged-in user.
+
+async function runRegisterToLoginFlow(spec) {
+  if (!spec.user) {
+    throw new Error("runRegisterToLoginFlow: spec.user is required");
+  }
+  const started = Date.now();
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+
+  await openEventPage(spec);
+
+  console.log(`${tag} opening tickets view`);
+  clickId("gp-test-tickets-button");
+  await waitFor(
+    `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
+    { label: "tickets view ADD" }
+  );
+  await jitter();
+
+  console.log(`${tag} login via signup-detour UX as User ${spec.user.id}`);
+  await loginViaPopupWithSignupDetour({ email: spec.user.email, password: spec.user.password });
+
+  // Now logged in, on tickets view — proceed with the normal logged-in path.
+  await fragmentTicketSelection(spec, { alreadyOnTicketsView: true });
+  await fragmentStep1Contact(spec, { mode: "loggedIn" });
+  await fragmentStep2Pay(spec);
+  return await closeAndReconcile(spec, started);
+}
+
 // ─── dispatch ──────────────────────────────────────────────────────────────
 
 const FLOW_SEQUENCERS = {
   "guest-checkout": runGuestFlow,
-  "logged-in-checkout": runLoggedInFlow
+  "logged-in-checkout": runLoggedInFlow,
+  "guest-to-register-checkout": runGuestRegisterFlow,
+  "guest-to-login-top-right": runGuestLoginTopRightFlow,
+  "register-to-login-checkout": runRegisterToLoginFlow
 };
 
 async function runOrder(spec) {
@@ -630,7 +812,11 @@ module.exports = {
     loginViaPopup,
     applyPromoOnTickets,
     addPaymentMethod,
-    reToggleTerms
+    reToggleTerms,
+    payZero,
+    registerViaPopup,
+    registerInCheckout,
+    loginViaPopupWithSignupDetour
   },
   fragments: {
     fragmentTicketSelection,

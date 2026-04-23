@@ -10,9 +10,36 @@
       "address": "123 Test Street",
       "city": "New York",
       "state": "NY"
-    }
+    },
+    "specialCharsSample": "O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash"
   },
   "orders": [
+    {
+      "orderNumber": 1,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 01",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": null
+    },
+    {
+      "orderNumber": 2,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Premium", "qty": 4 }],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 02",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": null
+    },
     {
       "orderNumber": 3,
       "flow": "guest-checkout",
@@ -30,11 +57,35 @@
       "user": null
     },
     {
+      "orderNumber": 4,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Standard Unlimited", "qty": 5 }],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 04 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": null
+    },
+    {
+      "orderNumber": 5,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Premium Unlimited", "qty": 4 }],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 05 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": null
+    },
+    {
       "orderNumber": 6,
       "flow": "logged-in-checkout",
-      "tickets": [
-        { "type": "Standard", "qty": 5 }
-      ],
+      "tickets": [{ "type": "Standard", "qty": 5 }],
       "promo": "FLAT10",
       "contact": {
         "name": "GP Det 06",
@@ -48,9 +99,7 @@
     {
       "orderNumber": 7,
       "flow": "logged-in-checkout",
-      "tickets": [
-        { "type": "Premium", "qty": 3 }
-      ],
+      "tickets": [{ "type": "Premium", "qty": 3 }],
       "promo": "PCT20",
       "contact": {
         "name": "GP Det 07",
@@ -59,6 +108,212 @@
       "expectedTotal": null,
       "specialChars": false,
       "user": "A",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 8,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 4 },
+        { "type": "Premium", "qty": 3 }
+      ],
+      "promo": "FLAT10",
+      "contact": {
+        "name": "GP Det 08 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": "A",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 9,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Standard Unlimited", "qty": 3 },
+        { "type": "Premium", "qty": 2 }
+      ],
+      "promo": "PCT20",
+      "contact": {
+        "name": "GP Det 09",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "B",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 10,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 4 },
+        { "type": "Premium Unlimited", "qty": 2 }
+      ],
+      "promo": "FLAT10",
+      "contact": {
+        "name": "GP Det 10",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "B",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 11,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "promo": "PCT100",
+      "contact": {
+        "name": "GP Det 11",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": null,
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 12,
+      "flow": "guest-checkout",
+      "tickets": [{ "type": "Premium", "qty": 2 }],
+      "promo": "FLAT1000",
+      "contact": {
+        "name": "GP Det 12",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": null,
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 13,
+      "flow": "guest-to-register-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 3 },
+        { "type": "Premium Unlimited", "qty": 3 }
+      ],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 13",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "D",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 14,
+      "flow": "guest-to-register-checkout",
+      "tickets": [{ "type": "Premium", "qty": 5 }],
+      "promo": "PCT20",
+      "contact": {
+        "name": "GP Det 14 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": "E",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 15,
+      "flow": "guest-to-register-checkout",
+      "tickets": [{ "type": "Standard Unlimited", "qty": 4 }],
+      "promo": "FLAT10",
+      "contact": {
+        "name": "GP Det 15",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "F",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 16,
+      "flow": "guest-to-login-top-right",
+      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "promo": null,
+      "contact": {
+        "name": "GP Det 16",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "C",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 17,
+      "flow": "guest-to-login-top-right",
+      "tickets": [
+        { "type": "Standard", "qty": 2 },
+        { "type": "Premium", "qty": 2 },
+        { "type": "Standard Unlimited", "qty": 3 }
+      ],
+      "promo": "PCT20",
+      "contact": {
+        "name": "GP Det 17 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": "C",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 18,
+      "flow": "register-to-login-checkout",
+      "tickets": [{ "type": "Premium Unlimited", "qty": 5 }],
+      "promo": "FLAT10",
+      "contact": {
+        "name": "GP Det 18",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "A",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 19,
+      "flow": "register-to-login-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 2 },
+        { "type": "Premium", "qty": 2 },
+        { "type": "Standard Unlimited", "qty": 3 },
+        { "type": "Premium Unlimited", "qty": 2 }
+      ],
+      "promo": "PCT100",
+      "contact": {
+        "name": "GP Det 19 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": true,
+      "user": "B",
+      "discoveryPending": true
+    },
+    {
+      "orderNumber": 20,
+      "flow": "logged-in-checkout",
+      "tickets": [
+        { "type": "Standard", "qty": 4 },
+        { "type": "Premium Unlimited", "qty": 3 }
+      ],
+      "promo": "FLAT1000",
+      "contact": {
+        "name": "GP Det 20",
+        "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
+      },
+      "expectedTotal": null,
+      "specialChars": false,
+      "user": "B",
       "discoveryPending": true
     }
   ]

@@ -1,0 +1,21 @@
+{
+  "flow": "guest-to-login-top-right",
+  "version": "81rkv",
+  "capturedAt": null,
+  "status": "PENDING_DISCOVERY",
+  "representativeOrder": {
+    "orderNumber": 16,
+    "scenario": "Standard×3, no promo, User C logs in mid-cart via top-right popup"
+  },
+  "_todo": [
+    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
+    "Session name: -s=gp-discovery-guest-to-login-top-right.",
+    "Seed: Order #16 (Standard×3, no promo, User C).",
+    "Unique concern: verify that the cart persists through the login popup (tickets added as guest must still be in the cart after LOG IN). If the cart resets, the order of operations in runGuestLoginTopRightFlow needs to be reversed — log in BEFORE adding tickets.",
+    "All other selectors (loginViaPopup, applyPromoOnTickets) are shared with logged-in-checkout — once discovered there, this flow only needs the cart-persistence verification."
+  ],
+  "steps": [],
+  "missingIdsOnStep1": [],
+  "step2DisplayIdsMissing": [],
+  "newGotchas": []
+}

@@ -22,6 +22,16 @@ Subset and append control:
 5. Run `npm test -- --testPathPattern=e2e-gp-testing` after all orders are placed
 6. Expected results: 41/42 Jest tests pass. The single known failure is a $0.01 rounding difference on custom fees
 
+### Deterministic-runner CLI
+
+| Command | Purpose |
+|---------|---------|
+| `npm run e2e:order -- --order 3` | Run a single order by number (reads `orders.json` + `e2e-state.json`). |
+| `npm run e2e:run-order` | Backward-compat shim — runs Order #3. |
+| `npm run e2e:run-all` | Sequentially run every order in `orders.json` (or the subset in `settings.flow.ordersToRun`). Orders marked `discoveryPending: true` are skipped with a message. |
+| `npm run e2e:run-all -- --only 1,3,11` | Override `ordersToRun` at the CLI. |
+| `npm run e2e:discovery-check` | Smoke-probe each `discovery-<flow>.json` that isn't `PENDING_DISCOVERY` against the current event. Flags stale flows before a full run. |
+
 ## How to Use This Runbook
 
 1. **Read `settings.json` first** — it has all configuration: credentials, base URL, payment details, ticket types, promotions, browser mode
@@ -467,7 +477,7 @@ setter.call(el, value);
 el.dispatchEvent(new Event('input', { bubbles: true }));
 el.dispatchEvent(new Event('change', { bubbles: true }));
 ```
-Encapsulated in the `fillBubbleInput(id, value)` helper in `scripts/run-order-deterministic.js`.
+Encapsulated in the `fillBubbleInput(id, value)` helper in `scripts/run-order.js`.
 **Source:** Order #3 discovery + deterministic-runner build, 2026-04-22.
 
 ---
@@ -593,7 +603,7 @@ Ask the user to add an `ID Attribute` in the Bubble editor to make this determin
 const m = raw.match(/### Result\n([\s\S]*?)(?:\n### |$)/);
 return m ? m[1].trim() : "";
 ```
-Encapsulated in the `pwEval(js)` helper in `scripts/run-order-deterministic.js`.
+Encapsulated in the `pwEval(js)` helper in `scripts/run-order.js`.
 **Source:** Order #3 deterministic run, 2026-04-22.
 
 ### playwright-cli run-code: silent failures — exit 0 even when Playwright throws
@@ -606,7 +616,7 @@ if (/"err"\s*:/.test(out) || /TimeoutError|Error:/.test(out)) {
   throw new Error("run-code reported an error:\n" + out);
 }
 ```
-Applied around the Authorize.net `run-code` call in `run-order-deterministic.js`.
+Applied around the Authorize.net `run-code` call in `run-order.js`.
 **Source:** Order #3 deterministic run, 2026-04-22.
 
 ---

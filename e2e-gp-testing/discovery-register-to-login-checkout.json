@@ -1,0 +1,23 @@
+{
+  "flow": "register-to-login-checkout",
+  "version": "81rkv",
+  "capturedAt": null,
+  "status": "PENDING_DISCOVERY",
+  "representativeOrder": {
+    "orderNumber": 18,
+    "scenario": "Premium Unlimited×5, FLAT10 promo, User A via Login → SIGN UP → OR LOGIN detour"
+  },
+  "_todo": [
+    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
+    "Session name: -s=gp-discovery-register-to-login-checkout.",
+    "Seed: Order #18 (Premium Unlimited×5, FLAT10, User A).",
+    "Focus primitive (stubbed in run-order.js):",
+    "  - loginViaPopupWithSignupDetour: after opening the login popup, click SIGN UP (reaches the signup form); then click the 'OR LOGIN' button (it is a button, not a text link — runbook § Login & Signup); popup flips back to login form; fill existing creds; click LOG IN.",
+    "  - The OR LOGIN button's selector is the one unique element — everything else reuses the login-popup primitives.",
+    "Verify post-login behaviour is identical to runLoggedInFlow's post-login state (still on tickets view, logged in)."
+  ],
+  "steps": [],
+  "missingIdsOnStep1": [],
+  "step2DisplayIdsMissing": [],
+  "newGotchas": []
+}
