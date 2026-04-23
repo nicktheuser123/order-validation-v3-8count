@@ -18,7 +18,8 @@ e2e-gp-testing/results/
 order*-*.yml
 
 # MVP deterministic-runner transient artifacts
-e2e-gp-testing/discovery.json
+# (discovery-<flow>.json files are tracked — they're the authoritative
+# observation logs the runner depends on, not scratch output.)
 e2e-gp-testing/heal.log
 e2e-gp-testing/.order-*-done.json
 e2e-gp-testing/.setup-done-*

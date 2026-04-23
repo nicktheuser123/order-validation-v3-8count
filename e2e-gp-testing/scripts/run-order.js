@@ -226,12 +226,15 @@ async function reconcileOrderByEmail(email, eventId) {
   return mine[0] || null;
 }
 
-// ─── flow sequencer: guest-checkout ────────────────────────────────────────
+// ─── setup / teardown primitives (shared by all flows) ─────────────────────
 
-async function runGuestFlow(spec) {
-  const started = Date.now();
+/**
+ * Clean the session, open the event URL with a pinned viewport, and wait for
+ * the landing view's Tickets button to exist. See Gotchas Registry
+ * "Browser session: headless needs an explicit viewport".
+ */
+async function openEventPage(spec) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
-
   console.log(`${tag} cleaning session`);
   try { pw("delete-data"); } catch { /* first-run no-op */ }
 
@@ -240,45 +243,18 @@ async function runGuestFlow(spec) {
   else pw("open", spec.event.url);
   try { pw("resize", String(VIEWPORT_WIDTH), String(VIEWPORT_HEIGHT)); } catch { /* resize can fail on some platforms */ }
   pw("run-code", `async (page) => { await page.setViewportSize({ width: ${VIEWPORT_WIDTH}, height: ${VIEWPORT_HEIGHT} }); }`);
+
   await waitFor(`!!document.getElementById('gp-test-tickets-button')`, { label: "landing Tickets button" });
   await jitter();
+}
 
-  console.log(`${tag} opening tickets view`);
-  clickId("gp-test-tickets-button");
-  await waitFor(`Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`, { label: "tickets view ADD" });
-  await jitter();
-
-  await addTickets(spec.tickets);
-
-  console.log(`${tag} PROCEED TO CHECKOUT`);
-  clickId("gp-test-proceed-to-checkout");
-  await waitFor(`!!document.getElementById('main-full-name')`, { timeoutMs: 15000, label: "Step 1 form" });
-  await sleep(800);
-
-  console.log(`${tag} Step 1 — contact + consent`);
-  fillContact(spec.contact);
-  await jitter();
-  completeStep1Consent();
-  await jitter();
-
-  console.log(`${tag} CONTINUE AS GUEST`);
-  clickId("continue-as-guest");
-  await waitFor(`!!document.getElementById('toggle-terms') && !!document.getElementById('complete-order-authnet')`, { timeoutMs: 15000, label: "Step 2" });
-  await sleep(1200);
-
-  console.log(`${tag} Step 2 — terms toggle`);
-  toggleTerms();
-  await verifyTermsToggleOn();
-
-  console.log(`${tag} PAY NOW → Authorize.net`);
-  clickId("complete-order-authnet");
-  await sleep(3000);
-  payAuthNet(spec.card);
-
-  console.log(`${tag} waiting for success heading`);
-  await waitForSuccess();
-
-  const elapsed = Date.now() - started;
+/**
+ * After success: hold for the Bubble async-workflow floor, close the session,
+ * then query the Bubble Data API for the resulting gp_order.
+ */
+async function closeAndReconcile(spec, startedMs) {
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+  const elapsed = Date.now() - startedMs;
   if (elapsed < MIN_ORDER_MS) {
     const rem = MIN_ORDER_MS - elapsed;
     console.log(`${tag} padding ${rem}ms to hit ${MIN_ORDER_MS}ms floor`);
@@ -290,10 +266,104 @@ async function runGuestFlow(spec) {
   try { pw("delete-data"); } catch {}
 
   console.log(`${tag} resolving Bubble order ID by contact email`);
-  await sleep(8000);
+  await sleep(8000); // let backend settle before querying
   const order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
   if (!order) throw new Error(`no gp_order found for email ${spec.contact.email}`);
-  return { order, wallMs: Date.now() - started };
+  return { order, wallMs: Date.now() - startedMs };
+}
+
+// ─── fragments (reusable mid-level compositions) ───────────────────────────
+
+/**
+ * Tickets view: open, add the ticket mix, (future: applyPromoOnTickets +
+ * waitForCartSubtotal), proceed to Step 1. Shared by every flow that drives
+ * a purchase — guest, logged-in, register-in-checkout, etc.
+ */
+async function fragmentTicketSelection(spec) {
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+  console.log(`${tag} opening tickets view`);
+  clickId("gp-test-tickets-button");
+  await waitFor(
+    `Array.from(document.querySelectorAll('button#add')).some(b => b.offsetParent !== null)`,
+    { label: "tickets view ADD" }
+  );
+  await jitter();
+
+  await addTickets(spec.tickets);
+
+  // TODO(promo, PR 4+): if (spec.promo) { await applyPromoOnTickets(spec.promo); await waitForCartSubtotal(...); }
+
+  console.log(`${tag} PROCEED TO CHECKOUT`);
+  clickId("gp-test-proceed-to-checkout");
+  await waitFor(`!!document.getElementById('main-full-name')`, { timeoutMs: 15000, label: "Step 1 form" });
+  await sleep(800); // settle
+}
+
+/**
+ * Step 1: fill contact, flip both consent checkboxes, then exit via the mode-
+ * specific button. Mode selects the Step-1 exit: "guest" → CONTINUE AS GUEST,
+ * "register" → REGISTER & SAVE INFO (signup sub-form, PR 4+), "loggedIn" →
+ * form may pre-fill; flow still needs consent + CONTINUE (PR 4).
+ */
+async function fragmentStep1Contact(spec, { mode }) {
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+  console.log(`${tag} Step 1 — contact + consent (mode=${mode})`);
+  fillContact(spec.contact);
+  await jitter();
+  completeStep1Consent();
+  await jitter();
+
+  if (mode === "guest") {
+    console.log(`${tag} CONTINUE AS GUEST`);
+    clickId("continue-as-guest");
+  } else if (mode === "register") {
+    throw new Error("fragmentStep1Contact: mode=register not yet implemented (PR 4+)");
+  } else if (mode === "loggedIn") {
+    throw new Error("fragmentStep1Contact: mode=loggedIn not yet implemented (PR 4)");
+  } else {
+    throw new Error(`fragmentStep1Contact: unknown mode ${JSON.stringify(mode)}`);
+  }
+
+  await waitFor(
+    `!!document.getElementById('toggle-terms') && !!document.getElementById('complete-order-authnet')`,
+    { timeoutMs: 15000, label: "Step 2" }
+  );
+  await sleep(1200); // toggle needs render time
+}
+
+/**
+ * Step 2: terms toggle (with verify + fallback), then pay. For the current
+ * guest-checkout-no-promo scope this always goes through payAuthNet. Branches
+ * for $0 orders (COMPLETE ORDER 0$) and the first-order-per-logged-in-user
+ * addPaymentMethod detour land in PR 4+.
+ */
+async function fragmentStep2Pay(spec) {
+  const tag = `[order-${pad2(spec.orderNumber)}]`;
+  console.log(`${tag} Step 2 — terms toggle`);
+  toggleTerms();
+  await verifyTermsToggleOn();
+
+  // TODO($0, PR 4+): detect zero-order button → payZero() instead of PAY NOW + authnet.
+  console.log(`${tag} PAY NOW → Authorize.net`);
+  clickId("complete-order-authnet");
+  await sleep(3000);
+
+  // TODO(addPayment, PR 4): detect customer/addPayment landing → addPaymentMethod + reToggleTerms + retry.
+  payAuthNet(spec.card);
+
+  console.log(`${tag} waiting for success heading`);
+  await waitForSuccess();
+}
+
+// ─── flow sequencer: guest-checkout ────────────────────────────────────────
+
+async function runGuestFlow(spec) {
+  const started = Date.now();
+  await openEventPage(spec);
+  await fragmentTicketSelection(spec);
+  await fragmentStep1Contact(spec, { mode: "guest" });
+  await fragmentStep2Pay(spec);
+  return await closeAndReconcile(spec, started);
 }
 
 // ─── dispatch ──────────────────────────────────────────────────────────────
@@ -414,7 +484,6 @@ if (require.main === module) {
 module.exports = {
   runOrder,
   loadSpec,
-  // primitives — exported for reuse by PR 3 fragments and PR 4+ sequencers
   primitives: {
     addTickets,
     fillContact,
@@ -423,7 +492,14 @@ module.exports = {
     verifyTermsToggleOn,
     payAuthNet,
     waitForSuccess,
-    reconcileOrderByEmail
+    reconcileOrderByEmail,
+    openEventPage,
+    closeAndReconcile
+  },
+  fragments: {
+    fragmentTicketSelection,
+    fragmentStep1Contact,
+    fragmentStep2Pay
   },
   sequencers: FLOW_SEQUENCERS
 };

@@ -33,18 +33,36 @@ Subset and append control:
 
 ## Phase 0: Discovery (observe → record → generate)
 
-**Purpose.** Capture real DOM IDs and selector strategies from a live walkthrough, so the deterministic runner can be written or extended without guessing. This is the handoff point between the old LLM-only flow (Phase 2 below) and the deterministic runner (`scripts/run-order-deterministic.js`).
+**Purpose.** Capture real DOM IDs and selector strategies from a live walkthrough of a distinct UI flow, so the deterministic runner can be written or extended without guessing. One discovery artifact per flow — new permutations within an existing flow (different ticket mix, promo, or contact data) do NOT need re-discovery, only a new row in `orders.json`.
 
 ### When to run this phase
 
-- The user added new `ID Attribute` values in the Bubble editor for a flow not yet covered by `discovery.json`.
-- A new flow branch needs to be supported (new checkout type, new promotion, new admin UI, a $0 path).
-- A deterministic step broke (ID changed, element moved, new gotcha emerged) — treat as re-discovery for just that step.
+- A new flow is being added that isn't covered yet (see the Flow Inventory below) — e.g. first time implementing `logged-in-checkout`.
+- User added new `ID Attribute` values in the Bubble editor that affect an existing flow, and that flow's `discovery-<flow>.json` is now stale.
+- A deterministic step broke (ID changed, element moved, new gotcha emerged) — treat as targeted re-discovery of that flow's affected steps.
+
+### Flow inventory
+
+Each flow has its own `discovery-<flow>.json`:
+
+| Flow | File | Orders |
+|------|------|--------|
+| `guest-checkout` | `discovery-guest-checkout.json` | #1, #2, #3, #4, #5 (and $0 branch for #11, #12) |
+| `logged-in-checkout` | `discovery-logged-in-checkout.json` | #6, #7, #8, #9, #10, #20 |
+| `guest-to-register-checkout` | `discovery-guest-to-register-checkout.json` | #13, #14, #15 |
+| `guest-to-login-top-right` | `discovery-guest-to-login-top-right.json` | #16, #17 |
+| `register-to-login-checkout` | `discovery-register-to-login-checkout.json` | #18, #19 |
 
 ### What it produces
 
-`e2e-gp-testing/discovery.json` — the observation log the runner generator (Claude, in chat) reads to write or extend `run-order-deterministic.js`.
+`e2e-gp-testing/discovery-<flow>.json` — the observation log consumed by Claude (in chat) to write or extend the flow's sequencer in `scripts/run-order.js`.
 
+Top-level shape:
+
+- `flow` — the flow name (must match a key in `FLOW_SEQUENCERS`).
+- `version` — the Bubble version slug this discovery pass was captured against (e.g. `"81rkv"`).
+- `capturedAt` — ISO timestamp. Used to detect drift; compare against the app's last-published-at when re-discovering.
+- `representativeOrder` — the order spec the discovery agent exercised. Pure reference for humans; the executor ignores this.
 - `steps[]` — per interaction: `businessName`, `action` (`click`/`fill`/`toggle`/`wait`), `id` (real CSS ID or `null`), `tag`, `class`, `text`, `notes` (disambiguation rules + any Gotchas Registry entry names that applied).
 - `missingIdsOnStep*` — elements lacking an ID that the user should add in the Bubble editor before the next republish.
 - `newGotchas` — silent failures without a matching registry entry; promoted into the Gotchas Registry after the run.
@@ -56,29 +74,30 @@ Subset and append control:
 
 ### Agent contract
 
-Session name: `-s=gp-discovery-<slug>` (e.g. `gp-discovery-o06-flat10`). Never the default session.
+Session name: `-s=gp-discovery-<flow>` (e.g. `gp-discovery-logged-in-checkout`). Never the default session.
 
-1. `playwright-cli -s=gp-discovery-<slug> open <eventUrl> --headed` — fresh isolated context.
-2. Follow the Phase 2 business flow via snapshot-driven navigation. At each interaction:
+1. `playwright-cli -s=gp-discovery-<flow> open <eventUrl> --headed` — fresh isolated context.
+2. Follow the flow's business logic via snapshot-driven navigation. At each interaction:
    - Apply the relevant Gotchas Registry pattern proactively (`pressSequentially` for Authorize.net, native-setter + input/change events for Bubble inputs, inner-`<label>` for ionic toggles, visibility + DOM-order for shared-ID elements).
    - Probe the DOM: `document.getElementById('<expected-id>')`, `querySelectorAll('#<id>').length`, `offsetParent !== null` for visibility.
-   - Append a step object to `discovery.json` with the real ID, disambiguation notes, and any registry-entry citations.
+   - Append a step object to `discovery-<flow>.json` with the real ID, disambiguation notes, and any registry-entry citations.
 3. When a pattern that should work fails silently, record a minimal reproducer + the fix that eventually worked in `newGotchas`.
 4. Close the session + `delete-data` at the end.
 
 ### Handoff to runner generation (this chat)
 
-After discovery, the user prompts in chat: *"generate the deterministic code for <flow>"* (or: *"extend `run-order-deterministic.js` to handle order #<N>"*). Claude's contract:
+After discovery, the user prompts in chat: *"extend run-order.js to handle the `<flow>` flow"*. Claude's contract:
 
-1. Read the relevant `discovery.json` steps.
+1. Read `discovery-<flow>.json`.
 2. Grep the Gotchas Registry for every component touched.
 3. **Cite the matching registry entries in-chat, one line per entry**, before writing any selector or fill code. If no entry matches for a specific concern, state that explicitly.
-4. Reuse helpers already in `scripts/run-order-deterministic.js` (`pwEval`, `pwEvalVoid`, `waitFor`, `fillBubbleInput`, `clickVisibleByIdIndex`) instead of duplicating.
-5. Hand the runner to the user to execute. Debug cycles happen in-chat and feed back into the registry as `newGotchas` promotions.
+4. Reuse existing primitives/fragments from `scripts/run-order.js` (`addTickets`, `fillContact`, `completeStep1Consent`, `toggleTerms`, `verifyTermsToggleOn`, `payAuthNet`, `fragmentTicketSelection`, etc.) instead of duplicating. Add new primitives only when a step has no existing primitive.
+5. Register the new sequencer in `FLOW_SEQUENCERS`.
+6. Add the corresponding rows to `orders.json`. Run the order(s) headed to verify. Debug cycles happen in-chat and feed back into the registry as `newGotchas` promotions.
 
 ### Registry-promotion rule
 
-After each discovery pass, any `newGotchas` entries in `discovery.json` must be reviewed and moved into the Gotchas Registry (below) with Symptom / Cause / Fix / Source. The registry is the single source of truth; `discovery.json`'s `newGotchas` array is staging only.
+After each discovery pass, any `newGotchas` entries in `discovery-<flow>.json` must be reviewed and moved into the Gotchas Registry (below) with Symptom / Cause / Fix / Source. The registry is the single source of truth; the `newGotchas` array is staging only.
 
 ## Phase 1: Event Setup
 

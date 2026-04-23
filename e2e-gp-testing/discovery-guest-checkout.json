@@ -1,0 +1,170 @@
+{
+  "flow": "guest-checkout",
+  "version": "81rkv",
+  "capturedAt": "2026-04-22T08:58:59.000Z",
+  "representativeOrder": {
+    "orderNumber": 3,
+    "scenario": "Standard×3 + Premium×2, Guest, no promo",
+    "startedAt": "2026-04-22T08:58:59.000Z",
+    "completedAt": "2026-04-22T09:10:57.000Z",
+    "orderId": "1776848611277x759673563772354600",
+    "expectedTotal": 383.40
+  },
+  "steps": [
+    {
+      "step": 1,
+      "businessName": "click Tickets button on landing view",
+      "action": "click",
+      "id": "gp-test-tickets-button",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaJvm flex-aligned-button",
+      "text": "Tickets",
+      "notes": ""
+    },
+    {
+      "step": 2,
+      "businessName": "click ADD on the Standard ticket card (1st time — transitions card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "id=add is shared by all 4 ticket-card ADD buttons. Disambiguated by DOM order (4 querySelectorAll('button#add'), idx=0 is Standard, 1=Premium, 2=Std Unlimited, 3=Prem Unlimited). After this click the card replaces ADD with quantity-dropdown + add-item + button-minus-ticket-quantity."
+    },
+    {
+      "step": 3,
+      "businessName": "click the + icon on the Standard ticket card (2nd unit — takes qty 1→2)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Quantity-widget + icon on the transitioned Standard card. On this view only Standard has the widget, so #add-item is unique. If multiple ticket cards are active simultaneously this id would also be shared — disambiguate by DOM order / card position."
+    },
+    {
+      "step": 4,
+      "businessName": "click the + icon on the Standard ticket card (3rd unit — takes qty 2→3)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Same #add-item as step 3 — Standard is still the only card with the widget at this point."
+    },
+    {
+      "step": 5,
+      "businessName": "click ADD on the Premium ticket card (1st time — transitions Premium card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "id=add is shared by all ADD buttons. With Standard already converted, Premium is now the first VISIBLE #add button (querySelectorAll('button#add') filtered to offsetParent !== null, idx=0)."
+    },
+    {
+      "step": 6,
+      "businessName": "click the + icon on the Premium ticket card (2nd unit — takes qty 1→2)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "With both Standard and Premium active, there are now TWO #add-item elements. Premium is the 2nd (DOM order idx=1)."
+    },
+    {
+      "step": 7,
+      "businessName": "click PROCEED TO CHECKOUT",
+      "action": "click",
+      "id": "gp-test-proceed-to-checkout",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cnpqaZ0 bubble-r-container relative",
+      "text": "PROCEED TO CHECKOUT",
+      "notes": "Single element, unique id. Click via el.click(). Transition to Step 1 takes ~2s; wait for #main-full-name to appear."
+    },
+    {
+      "step": 8,
+      "businessName": "fill Contact Info Full Name on Step 1",
+      "action": "fill",
+      "id": "main-full-name",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpmv0 a1776848616453x26418",
+      "text": "",
+      "value": "GP Discovery 03",
+      "notes": "Use native value setter + input+change events for Bubble to pick up the value; plain assignment does not trigger the framework."
+    },
+    {
+      "step": 9,
+      "businessName": "fill Contact Info Email on Step 1",
+      "action": "fill",
+      "id": "main-email",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpnaB0 a1776848616453x26418",
+      "text": "",
+      "value": "abhishek+gp-disc-o03@millionlabs.co.uk",
+      "notes": "Same event-dispatch pattern as main-full-name."
+    },
+    {
+      "step": 10,
+      "businessName": "check 'contact info is same for all tickets' checkbox on Step 1",
+      "action": "click",
+      "id": "contact-info-same",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "checkThe contact information is the same for all tickets",
+      "notes": "Bubble checkbox rendered as a clickable Group DIV. After checking, the per-ticket fields auto-fill from Contact Info."
+    },
+    {
+      "step": 11,
+      "businessName": "check the 'authorized cardholder' consent checkbox at bottom of Step 1 (just above CONTINUE AS GUEST)",
+      "action": "click",
+      "id": null,
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cpmaJo1 bubble-r-container flex row",
+      "text": "I am the authorized cardholder for this purchase...",
+      "notes": "NO id attribute. Currently selecting via: Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group')).find(e => e.textContent.includes('authorized cardholder'))."
+    },
+    {
+      "step": 12,
+      "businessName": "click CONTINUE AS GUEST on Step 1",
+      "action": "click",
+      "id": "continue-as-guest",
+      "tag": "BUTTON",
+      "class": "",
+      "text": "CONTINUE AS GUEST",
+      "notes": "Transitions to Step 2 (Payment). Wait for #toggle-terms and #complete-order-authnet to appear."
+    },
+    {
+      "step": 13,
+      "businessName": "toggle the Terms & Conditions ionic toggle on Step 2",
+      "action": "click",
+      "id": "toggle-terms",
+      "tag": "DIV",
+      "class": "bubble-element ionic-IonicToggle clickable-element",
+      "text": "",
+      "notes": "CRITICAL: click the inner <label> — `document.getElementById('toggle-terms').querySelector('label').click()`. Clicking the outer div can silently no-op and PAY NOW stays inert. Verify with `querySelector('input[type=checkbox]').checked === true` before clicking PAY NOW."
+    },
+    {
+      "step": 14,
+      "businessName": "click PAY NOW on Step 2 — redirects to Authorize.net",
+      "action": "click",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "",
+      "text": "PAY NOW",
+      "notes": "Only enabled after toggle-terms input is checked=true. Clicking redirects to test.authorize.net/payment/payment."
+    }
+  ],
+  "missingIdsOnStep1": [
+    "'authorized cardholder' consent checkbox (just above CONTINUE AS GUEST) — needs an id to be clickable deterministically",
+    "'stay up-to-date via email' opt-in checkbox (not required, but missing id)",
+    "CART total display (shows $383.40) — would be useful to wait on for subtotal-updated logic",
+    "CART item-count heading (shows '5')",
+    "CART timer (countdown 30:00)"
+  ],
+  "step2DisplayIdsMissing": [
+    "Order Total display (shows $383.40) — no id",
+    "CART subtotal header — no id",
+    "Timer/countdown — no id"
+  ],
+  "newGotchas": []
+}
