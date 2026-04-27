@@ -8,6 +8,8 @@ Read `settings.json` → `flow.mode`:
 - `"orders-only"` — skip Phase 1 entirely. Run `npm run e2e:preflight` first; if it exits 0, the existing event in `e2e-state.json` is reusable. Proceed straight to Phase 2 with `state.event.url` as the target.
 - `"verify-only"` — skip Phases 1 and 2. Jump directly to `npm test -- e2e-gp-testing/tests/e2eOrder.test.js`.
 
+**Phase 2 execution rule (required for `"full"` and `"orders-only"`):** Phase 2 MUST be executed via the parallel sub-agent recipe in [§ Parallel End-to-End Recipe (Required)](#parallel-end-to-end-recipe-required-for-orders-only--full). Do NOT use `npm run e2e:run-all` for end-to-end runs — it is sequential and exists only for single-order or small-subset debugging.
+
 Subset and append control:
 
 - `flow.ordersToRun` — if a non-empty array of order numbers (e.g. `[7, 9]`), iterate only those rows from the 20-row matrix in Phase 2. Empty array = run all 20.
@@ -18,7 +20,7 @@ Subset and append control:
 1. Read `settings.json` for all config values and pick a `flow.mode`
 2. Ensure `testConfig.js` has the E2E test flag enabled and that the event's 4 promotions are **assigned to all 4 ticket types** via the GP admin "Assigned Promotions" tab (failure to do this = "Invalid coupon code" at checkout)
 3. Verify promotion percentages via `PATCH /api/1.1/obj/gp_promotion/<id>` if the UI saved them wrong (percentage field is buggy)
-4. Follow the Mode Router above
+4. Follow the Mode Router above (end-to-end orders are run via § Parallel End-to-End Recipe — not via `npm run e2e:run-all`)
 5. Run `npm test -- --testPathPattern=e2e-gp-testing` after all orders are placed
 6. Expected results: 41/42 Jest tests pass. The single known failure is a $0.01 rounding difference on custom fees
 
@@ -187,12 +189,7 @@ Created mid-checkout (Guest→Register flow):
 
 ### Execution
 
-Before starting:
-- If `flow.mode` is `"orders-only"`, run `npm run e2e:preflight` and only proceed on exit 0. Preflight closes any leftover `playwright-cli` sessions and, if `flow.resetOrdersOnRun` is true, resets `state.setupUsers` to `"pending"` for A/B/C.
-- If `flow.resetOrdersOnRun` is `true`, set `state.orders = []` in `e2e-state.json` before the first purchase.
-- **Spawn 3 parallel setup agents first** (Setup-A, Setup-B, Setup-C) on sessions `gp-setup-{A,B,C}` to sign up Users A/B/C. Skip any whose `state.setupUsers.<id>` is already `"done"`. Wait for all three flags to be `"done"` before spawning order workers.
-- Then spawn up to 13 order worker agents in parallel per the Agent Split below. Each worker owns its sessions (`gp-order-NN`) and runs multiple orders sequentially only if it's an Owner-A/B/C agent.
-- Iterate only the order numbers listed in `flow.ordersToRun`; if it's empty, iterate all 20.
+Before starting: follow [§ Parallel End-to-End Recipe (Required)](#parallel-end-to-end-recipe-required-for-orders-only--full) below. It is the single source of truth for the pre-phase, the parallel split, the recovery pattern, and the post-phase merge. Iterate only the order numbers listed in `flow.ordersToRun`; if it's empty, iterate all 20.
 
 ### Checkout Flows
 
@@ -215,25 +212,60 @@ All login and signup MUST use the popup triggered by that link. **Never navigate
 - To switch from signup back to login: click the **"OR LOGIN"** button on the signup form (it is a button, not a text link).
 - The "REGISTER & SAVE INFO" button at checkout Step 1 also creates an account during purchase (different mid-checkout flow).
 
-### Agent Split (max-parallelism, user-ownership model)
+### Parallel End-to-End Recipe (Required for orders-only / full)
 
-**Session contract (critical):** every `playwright-cli` invocation MUST include `-s=<name>`. The default (unnamed) session is forbidden during Phase 2 — two agents sharing it would land on the same Bubble cookies and collide. Topology summary:
+**Mandatory.** Any "run the end-to-end test flow" request executes Phase 2 via this recipe. The sequential `npm run e2e:run-all` is debugging-only and must NOT be used here.
 
-**Pre-phase — 3 parallel setup agents** (only if `state.setupUsers.<id> !== "done"`):
-- **Setup-A** (`-s=gp-setup-A`): sign up User A via the login popup (open event URL → click "Tickets" → click "Login" top-right → click "SIGN UP" → fill email+password+confirm) → on success set `state.setupUsers.A = "done"`
-- **Setup-B** (`-s=gp-setup-B`): same for User B
-- **Setup-C** (`-s=gp-setup-C`): same for User C
+**Session contract (critical):** every `playwright-cli` invocation MUST include `-s=<name>`. The default (unnamed) session is forbidden during Phase 2 — two agents sharing it would land on the same Bubble cookies and collide.
 
-Parent agent waits for all three `state.setupUsers` flags to flip to `"done"` before launching the order phase.
+#### Parent agent — pre-phase (serial)
 
-**Order phase — 13 worker agents** (parent launches all simultaneously):
-- **7 guest workers** — one per order: Guest-01..05, Guest-11, Guest-12 (sessions `gp-order-01` … `gp-order-12`). No user gating.
-- **Owner-A** — processes #6, #7, #8, #18 sequentially using sessions `gp-order-06`, `gp-order-07`, `gp-order-08`, `gp-order-18` (open/close a fresh named session per order; do NOT reuse one session across multiple orders). Gated on `state.setupUsers.A == "done"`.
-- **Owner-B** — same pattern for #9, #10, #19, #20. Gated on `state.setupUsers.B`.
-- **Owner-C** — #16, #17. Gated on `state.setupUsers.C`.
-- **Register-D/E/F** — one worker each for #13, #14, #15 (Guest→Register flow creates Users D/E/F mid-checkout). Sessions `gp-order-13/14/15`.
+1. `playwright-cli close-all`
+2. `HEADED=false npm run e2e:preflight` — must exit 0. Cleans the 23 named sessions (`gp-order-01..20` + `gp-setup-A/B/C`) and, if `flow.resetOrdersOnRun: true`, resets `state.setupUsers` to `"pending"` for A/B/C.
+3. If `flow.resetOrdersOnRun: true`, set `state.orders = []` in `e2e-state.json`.
 
-This gives 13 concurrent Chrome contexts at peak and avoids any cross-agent user lock — each shared user (A/B/C) is processed by exactly one owning agent that serializes its own queue.
+#### Setup pre-phase (only if `state.setupUsers.<id> !== "done"`)
+
+3 parallel sub-agents — Setup-A/B/C — each owning session `gp-setup-<id>`. Each signs up its user via the login popup (Tickets → Login top-right → SIGN UP → fill email + password + confirm), then sets `state.setupUsers.<id> = "done"`. Parent waits for all three flags before launching the order phase.
+
+#### Order phase — 13 parallel sub-agents (parent launches simultaneously)
+
+| Worker | Orders | Session(s) | Gating |
+|--------|--------|-----------|--------|
+| Guest-01..05, 11, 12 (×7) | one each: #1, #2, #3, #4, #5, #11, #12 | `gp-order-NN` | none |
+| Owner-A | #6 → #7 → #8 → #18 (serial within worker) | fresh `gp-order-NN` per order | `state.setupUsers.A == "done"` |
+| Owner-B | #9 → #10 → #19 → #20 (serial) | fresh `gp-order-NN` per order | `state.setupUsers.B == "done"` |
+| Owner-C | #16 → #17 (serial) | fresh `gp-order-NN` per order | `state.setupUsers.C == "done"` |
+| Register-D | #13 | `gp-order-13` | none (creates User D mid-checkout) |
+| Register-E | #14 | `gp-order-14` | none |
+| Register-F | #15 | `gp-order-15` | none |
+
+**Sub-agent contract.** Each sub-agent shells out per assigned order:
+
+```bash
+HEADED=false node e2e-gp-testing/scripts/run-order.js --order <N>
+```
+
+The script handles: open session → ticket selection → checkout → Authorize.net → success detection → reconcile by email → close + delete-data. Sub-agent parses the `orderId` line from stdout and returns `{ orderNumber, orderId, total }` to the parent.
+
+Owner-A/B/C sub-agents iterate their queue serially — one `run-order.js` invocation per order, fresh named session per order (NEVER reuse a session across orders). Failures in a queue stop that queue; other queues and the guest workers continue.
+
+13 concurrent Chrome contexts at peak. No cross-agent user collision because each shared user A/B/C is owned by exactly one serial queue.
+
+#### Recovery pattern — owner queue fails on login
+
+Common cause: a logged-in user (A/B/C) was deleted in Bubble between runs, so the login popup times out. Steps:
+
+1. Confirm via Bubble (search `custom.user` by email) or by re-running the failed order manually.
+2. If creds need rotating, edit `e2e-state.json::guestUsers[<id>]` in place with the new `email` / `password`.
+3. Spawn a single replacement Owner-`<id>` sub-agent for that queue's remaining orders only.
+4. Other workers' results are unaffected — merge as normal in the post-phase.
+
+#### Parent agent — post-phase (serial)
+
+1. Merge each sub-agent's `{orderNumber, orderId}` into `state.orders[]` using the same shape `appendOrderToState` produces in `run-all.js`: `{ orderNumber, orderId, tickets, promo, checkout }`. (Tickets/promo/checkout come from `orders.json` for that order number; the helpers in `run-all.js` show the formatting.)
+2. Restore `state.setupUsers.A/B/C = "done"` (preflight reset them).
+3. Run `npm test -- e2e-gp-testing/tests/e2eOrder.test.js` for verification.
 
 ### Purchase Process (General)
 

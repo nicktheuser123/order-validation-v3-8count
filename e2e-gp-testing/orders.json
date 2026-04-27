@@ -17,7 +17,12 @@
     {
       "orderNumber": 1,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "tickets": [
+        {
+          "type": "Standard",
+          "qty": 3
+        }
+      ],
       "promo": null,
       "contact": {
         "name": "GP Det 01",
@@ -30,7 +35,12 @@
     {
       "orderNumber": 2,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Premium", "qty": 4 }],
+      "tickets": [
+        {
+          "type": "Premium",
+          "qty": 4
+        }
+      ],
       "promo": null,
       "contact": {
         "name": "GP Det 02",
@@ -44,22 +54,33 @@
       "orderNumber": 3,
       "flow": "guest-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 3 },
-        { "type": "Premium", "qty": 2 }
+        {
+          "type": "Standard",
+          "qty": 3
+        },
+        {
+          "type": "Premium",
+          "qty": 2
+        }
       ],
       "promo": null,
       "contact": {
         "name": "GP Det 03",
         "email": "abhishek+gp-det-o{N}-{T}@millionlabs.co.uk"
       },
-      "expectedTotal": 383.40,
+      "expectedTotal": 383.4,
       "specialChars": false,
       "user": null
     },
     {
       "orderNumber": 4,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Standard Unlimited", "qty": 5 }],
+      "tickets": [
+        {
+          "type": "Standard Unlimited",
+          "qty": 5
+        }
+      ],
       "promo": null,
       "contact": {
         "name": "GP Det 04 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
@@ -72,7 +93,12 @@
     {
       "orderNumber": 5,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Premium Unlimited", "qty": 4 }],
+      "tickets": [
+        {
+          "type": "Premium Unlimited",
+          "qty": 4
+        }
+      ],
       "promo": null,
       "contact": {
         "name": "GP Det 05 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
@@ -85,7 +111,12 @@
     {
       "orderNumber": 6,
       "flow": "logged-in-checkout",
-      "tickets": [{ "type": "Standard", "qty": 5 }],
+      "tickets": [
+        {
+          "type": "Standard",
+          "qty": 5
+        }
+      ],
       "promo": "FLAT10",
       "contact": {
         "name": "GP Det 06",
@@ -93,13 +124,17 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "A",
-      "discoveryPending": true
+      "user": "A"
     },
     {
       "orderNumber": 7,
       "flow": "logged-in-checkout",
-      "tickets": [{ "type": "Premium", "qty": 3 }],
+      "tickets": [
+        {
+          "type": "Premium",
+          "qty": 3
+        }
+      ],
       "promo": "PCT20",
       "contact": {
         "name": "GP Det 07",
@@ -107,15 +142,20 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "A",
-      "discoveryPending": true
+      "user": "A"
     },
     {
       "orderNumber": 8,
       "flow": "logged-in-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 4 },
-        { "type": "Premium", "qty": 3 }
+        {
+          "type": "Standard",
+          "qty": 4
+        },
+        {
+          "type": "Premium",
+          "qty": 3
+        }
       ],
       "promo": "FLAT10",
       "contact": {
@@ -124,15 +164,20 @@
       },
       "expectedTotal": null,
       "specialChars": true,
-      "user": "A",
-      "discoveryPending": true
+      "user": "A"
     },
     {
       "orderNumber": 9,
       "flow": "logged-in-checkout",
       "tickets": [
-        { "type": "Standard Unlimited", "qty": 3 },
-        { "type": "Premium", "qty": 2 }
+        {
+          "type": "Standard Unlimited",
+          "qty": 3
+        },
+        {
+          "type": "Premium",
+          "qty": 2
+        }
       ],
       "promo": "PCT20",
       "contact": {
@@ -141,15 +186,20 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "B",
-      "discoveryPending": true
+      "user": "B"
     },
     {
       "orderNumber": 10,
       "flow": "logged-in-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 4 },
-        { "type": "Premium Unlimited", "qty": 2 }
+        {
+          "type": "Standard",
+          "qty": 4
+        },
+        {
+          "type": "Premium Unlimited",
+          "qty": 2
+        }
       ],
       "promo": "FLAT10",
       "contact": {
@@ -158,13 +208,17 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "B",
-      "discoveryPending": true
+      "user": "B"
     },
     {
       "orderNumber": 11,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "tickets": [
+        {
+          "type": "Standard",
+          "qty": 3
+        }
+      ],
       "promo": "PCT100",
       "contact": {
         "name": "GP Det 11",
@@ -172,13 +226,17 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": null,
-      "discoveryPending": true
+      "user": null
     },
     {
       "orderNumber": 12,
       "flow": "guest-checkout",
-      "tickets": [{ "type": "Premium", "qty": 2 }],
+      "tickets": [
+        {
+          "type": "Premium",
+          "qty": 2
+        }
+      ],
       "promo": "FLAT1000",
       "contact": {
         "name": "GP Det 12",
@@ -186,15 +244,20 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": null,
-      "discoveryPending": true
+      "user": null
     },
     {
       "orderNumber": 13,
       "flow": "guest-to-register-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 3 },
-        { "type": "Premium Unlimited", "qty": 3 }
+        {
+          "type": "Standard",
+          "qty": 3
+        },
+        {
+          "type": "Premium Unlimited",
+          "qty": 3
+        }
       ],
       "promo": null,
       "contact": {
@@ -203,13 +266,17 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "D",
-      "discoveryPending": true
+      "user": "D"
     },
     {
       "orderNumber": 14,
       "flow": "guest-to-register-checkout",
-      "tickets": [{ "type": "Premium", "qty": 5 }],
+      "tickets": [
+        {
+          "type": "Premium",
+          "qty": 5
+        }
+      ],
       "promo": "PCT20",
       "contact": {
         "name": "GP Det 14 O'Brien \"Test\" <b>bold</b> & Co. {special} \\back/slash",
@@ -217,13 +284,17 @@
       },
       "expectedTotal": null,
       "specialChars": true,
-      "user": "E",
-      "discoveryPending": true
+      "user": "E"
     },
     {
       "orderNumber": 15,
       "flow": "guest-to-register-checkout",
-      "tickets": [{ "type": "Standard Unlimited", "qty": 4 }],
+      "tickets": [
+        {
+          "type": "Standard Unlimited",
+          "qty": 4
+        }
+      ],
       "promo": "FLAT10",
       "contact": {
         "name": "GP Det 15",
@@ -231,13 +302,17 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "F",
-      "discoveryPending": true
+      "user": "F"
     },
     {
       "orderNumber": 16,
       "flow": "guest-to-login-top-right",
-      "tickets": [{ "type": "Standard", "qty": 3 }],
+      "tickets": [
+        {
+          "type": "Standard",
+          "qty": 3
+        }
+      ],
       "promo": null,
       "contact": {
         "name": "GP Det 16",
@@ -245,16 +320,24 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "C",
-      "discoveryPending": true
+      "user": "C"
     },
     {
       "orderNumber": 17,
       "flow": "guest-to-login-top-right",
       "tickets": [
-        { "type": "Standard", "qty": 2 },
-        { "type": "Premium", "qty": 2 },
-        { "type": "Standard Unlimited", "qty": 3 }
+        {
+          "type": "Standard",
+          "qty": 2
+        },
+        {
+          "type": "Premium",
+          "qty": 2
+        },
+        {
+          "type": "Standard Unlimited",
+          "qty": 3
+        }
       ],
       "promo": "PCT20",
       "contact": {
@@ -263,13 +346,17 @@
       },
       "expectedTotal": null,
       "specialChars": true,
-      "user": "C",
-      "discoveryPending": true
+      "user": "C"
     },
     {
       "orderNumber": 18,
       "flow": "register-to-login-checkout",
-      "tickets": [{ "type": "Premium Unlimited", "qty": 5 }],
+      "tickets": [
+        {
+          "type": "Premium Unlimited",
+          "qty": 5
+        }
+      ],
       "promo": "FLAT10",
       "contact": {
         "name": "GP Det 18",
@@ -277,17 +364,28 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "A",
-      "discoveryPending": true
+      "user": "A"
     },
     {
       "orderNumber": 19,
       "flow": "register-to-login-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 2 },
-        { "type": "Premium", "qty": 2 },
-        { "type": "Standard Unlimited", "qty": 3 },
-        { "type": "Premium Unlimited", "qty": 2 }
+        {
+          "type": "Standard",
+          "qty": 2
+        },
+        {
+          "type": "Premium",
+          "qty": 2
+        },
+        {
+          "type": "Standard Unlimited",
+          "qty": 3
+        },
+        {
+          "type": "Premium Unlimited",
+          "qty": 2
+        }
       ],
       "promo": "PCT100",
       "contact": {
@@ -296,15 +394,20 @@
       },
       "expectedTotal": null,
       "specialChars": true,
-      "user": "B",
-      "discoveryPending": true
+      "user": "B"
     },
     {
       "orderNumber": 20,
       "flow": "logged-in-checkout",
       "tickets": [
-        { "type": "Standard", "qty": 4 },
-        { "type": "Premium Unlimited", "qty": 3 }
+        {
+          "type": "Standard",
+          "qty": 4
+        },
+        {
+          "type": "Premium Unlimited",
+          "qty": 3
+        }
       ],
       "promo": "FLAT1000",
       "contact": {
@@ -313,8 +416,7 @@
       },
       "expectedTotal": null,
       "specialChars": false,
-      "user": "B",
-      "discoveryPending": true
+      "user": "B"
     }
   ]
 }

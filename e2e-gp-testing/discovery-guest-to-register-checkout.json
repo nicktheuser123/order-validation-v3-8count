@@ -1,23 +1,337 @@
 {
   "flow": "guest-to-register-checkout",
   "version": "81rkv",
-  "capturedAt": null,
-  "status": "PENDING_DISCOVERY",
+  "capturedAt": "2026-04-23T05:30:23.000Z",
   "representativeOrder": {
     "orderNumber": 13,
-    "scenario": "Standard×3 + Premium Unlimited×3, no promo, User D created mid-checkout"
+    "scenario": "Standard×3 + Premium Unlimited×3, no promo, fresh user created mid-checkout via REGISTER & SAVE INFO",
+    "startedAt": "2026-04-23T05:30:23.000Z",
+    "completedAt": "2026-04-23T05:36:35.000Z",
+    "orderId": "1776922315033x910341086240047100",
+    "expectedTotal": 492.03,
+    "signupEmailUsed": "abhishek+gp-disc-register-1776922217@millionlabs.co.uk"
   },
-  "_todo": [
-    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
-    "Session name: -s=gp-discovery-guest-to-register-checkout.",
-    "Seed: Order #13 (Standard×3 + Premium Unlimited×3, no promo, User D).",
-    "Focus primitives (all stubbed in run-order.js):",
-    "  - registerInCheckout: REGISTER & SAVE INFO button ID on Step 1 (replaces CONTINUE AS GUEST for this flow); password + confirm password input IDs in the sub-form; submit mechanism.",
-    "  - Step 2 afterwards — does the logged-in-user addPaymentMethod detour apply for brand-new users? Likely yes (no saved card).",
-    "Then fill steps[] per the guest-checkout schema and promote any newGotchas into the Gotchas Registry."
+  "steps": [
+    {
+      "step": 1,
+      "businessName": "click Tickets button on landing view",
+      "action": "click",
+      "id": "gp-test-tickets-button",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaJvm flex-aligned-button",
+      "text": "Tickets",
+      "notes": "Same as guest-checkout step 1. Wait for visible #add buttons on tickets view."
+    },
+    {
+      "step": 2,
+      "businessName": "click ADD on the Standard ticket card (transitions card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "Registry: `Bubble shared IDs: #add and #add-item disambiguated by visibility + DOM order`. Initial visible #add order: 0=Standard, 1=Premium, 2=Std Unlimited, 3=Prem Unlimited. Click visible idx 0 for Standard."
+    },
+    {
+      "step": 3,
+      "businessName": "click + on Standard card (2nd unit, qty 1→2)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Only Standard's card has the widget right now, so visible #add-item idx 0 is Standard. Registry: Bubble shared IDs."
+    },
+    {
+      "step": 4,
+      "businessName": "click + on Standard card (3rd unit, qty 2→3)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Same as step 3, visible #add-item idx 0."
+    },
+    {
+      "step": 5,
+      "businessName": "click ADD on Premium Unlimited card (transitions card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "Standard is active so its #add is gone. Visible #add order is now: 0=Premium, 1=Std Unlimited, 2=Prem Unlimited. Click visible idx 2. Disambiguate by scanning closest card container text (`Standard|Premium|Standard Unlimited|Premium Unlimited`). Registry: Bubble shared IDs."
+    },
+    {
+      "step": 6,
+      "businessName": "click + on Premium Unlimited card (2nd unit, qty 1→2)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Two widgets visible now — idx 0=Standard, idx 1=Premium Unlimited (DOM order matches card order; Premium skipped because never activated). Click visible #add-item idx 1. Verify via closest-container text scan (type = Premium Unlimited)."
+    },
+    {
+      "step": 7,
+      "businessName": "click + on Premium Unlimited card (3rd unit, qty 2→3)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Same as step 6, visible #add-item idx 1."
+    },
+    {
+      "step": 8,
+      "businessName": "click PROCEED TO CHECKOUT",
+      "action": "click",
+      "id": "gp-test-proceed-to-checkout",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cnpqaZ0 bubble-r-container relative",
+      "text": "PROCEED TO CHECKOUT",
+      "notes": "Unique id. Click via el.click(). Wait for #main-full-name to appear (~2s)."
+    },
+    {
+      "step": 9,
+      "businessName": "fill Contact Info Full Name on Step 1",
+      "action": "fill",
+      "id": "main-full-name",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpmv0 a1776848616453x26418",
+      "text": "",
+      "value": "GP Disc Register",
+      "notes": "Registry: `Bubble input: el.value = x does not register — native setter + events required`. Use the fillBubbleInput helper (native value setter + input/change events). Plain assignment or fill() does not register."
+    },
+    {
+      "step": 10,
+      "businessName": "fill Contact Info Email on Step 1",
+      "action": "fill",
+      "id": "main-email",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpnaB0 a1776848616453x26418",
+      "text": "",
+      "value": "abhishek+gp-disc-register-<timestamp>@millionlabs.co.uk",
+      "notes": "Same native-setter pattern as step 9. Timestamped per-run — Registry: `Unique contact email per run`. The exact email captured for this discovery run is in representativeOrder.signupEmailUsed."
+    },
+    {
+      "step": 11,
+      "businessName": "check 'contact info is same for all tickets' checkbox on Step 1",
+      "action": "click",
+      "id": "contact-info-same",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "checkThe contact information is the same for all tickets",
+      "notes": "Bubble checkbox rendered as a clickable Group DIV. After checking, per-ticket fields auto-fill with the Contact Info name + email. Registry: `Bubble Step-1: both checkboxes required`."
+    },
+    {
+      "step": 12,
+      "businessName": "check 'authorized cardholder' consent checkbox at bottom of Step 1",
+      "action": "click",
+      "id": null,
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cpmaJo1 bubble-r-container flex row",
+      "text": "I am the authorized cardholder for this purchase...",
+      "notes": "NO id. Registry: `Bubble Step-1: authorized cardholder checkbox has no ID`. Select via class+text: `Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group')).find(e => e.textContent.includes('authorized cardholder'))`."
+    },
+    {
+      "step": 13,
+      "businessName": "click REGISTER & SAVE INFO on Step 1 (opens the signup popup)",
+      "action": "click",
+      "id": "continue-registered-user",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpoaE0",
+      "text": "REGISTER & SAVE INFO",
+      "notes": "IMPORTANT: this is the same Bubble element as the post-signup CONTINUE button (see step 18). Its TEXT changes from 'REGISTER & SAVE INFO' → 'CONTINUE' after signup; its ID #continue-registered-user is stable. Click via document.getElementById('continue-registered-user').click(). Opens the 'Create an 8Count profile' popup (does NOT transform Step 1 inline — it overlays a popup at high z-index)."
+    },
+    {
+      "step": 14,
+      "businessName": "wait for 'Create an 8Count profile' popup to render",
+      "action": "wait",
+      "id": null,
+      "tag": "DIV",
+      "class": "",
+      "text": "Create an 8Count profile",
+      "notes": "The popup has no stable ID on its container. Anchor the wait on the heading text or the appearance of a visible `input[type=password]` (the only such inputs on this page). Registry: `UI transitions: wait for specific visible elements`. Reference anchor for signup popup is `heading \"Create an 8Count profile\"` (level 2)."
+    },
+    {
+      "step": 15,
+      "businessName": "fill Email in the signup popup (empty on open — does NOT inherit from Step 1)",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "",
+      "text": "",
+      "value": "abhishek+gp-disc-register-<timestamp>@millionlabs.co.uk",
+      "notes": "CONFIRMED: popup Email field starts EMPTY even though Step 1 #main-email was filled. Must re-fill. Registry: `Bubble Step-1 (Guest→Register): popup Email field starts empty`. Target via `placeholder=\"Email\"` on a type=email input with NO id, filtered to offsetParent !== null, AND filtered out per-ticket email rows by requiring id === null. Use fillBubbleInput's native-setter + input/change pattern (Bubble input — Registry: Bubble input)."
+    },
+    {
+      "step": 16,
+      "businessName": "fill Password in the signup popup",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "",
+      "text": "",
+      "value": "Test123!",
+      "notes": "NO id. `input[type=password][placeholder=\"Password\"]` with autocomplete=\"new-password\". 1st of two visible password inputs (Password then Confirm password). Use native-setter pattern (Registry: Bubble input)."
+    },
+    {
+      "step": 17,
+      "businessName": "fill Confirm password in the signup popup",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "",
+      "text": "",
+      "value": "Test123!",
+      "notes": "NO id. `input[type=password][placeholder=\"Confirm password\"]` with autocomplete=\"new-password\". 2nd of two visible password inputs. Use native-setter pattern."
+    },
+    {
+      "step": 18,
+      "businessName": "click SIGN UP in the signup popup",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpaV1",
+      "text": "SIGN UP",
+      "notes": "NO id — the signup submit button must be targeted by text. Select `Array.from(document.querySelectorAll('button')).filter(e => /^SIGN UP$/i.test((e.textContent||'').trim())).filter(e => e.offsetParent !== null)[0]`. NOTE: this is DIFFERENT from the Step 1 REGISTER & SAVE INFO button (#continue-registered-user, step 13) — the popup has its own submit. After clicking, popup closes, user is logged in, and Step 1 REGISTER & SAVE INFO button re-labels to 'CONTINUE' (same element, same ID)."
+    },
+    {
+      "step": 19,
+      "businessName": "wait for post-signup state — popup closed, logged-in signal visible",
+      "action": "wait",
+      "id": null,
+      "tag": "",
+      "class": "",
+      "text": "",
+      "notes": "Post-signup signals: (a) the password input disappears (`!document.querySelector('input[type=password]:not([disabled])')` NOT reliable because Bubble may keep the popup's inputs disabled-but-present briefly), (b) `#continue-registered-user.textContent` changes from 'REGISTER & SAVE INFO' to 'CONTINUE' — USE THIS as the primary signal, (c) top-right 'Login' link replaced by 'Logout' in the tickets header (observed in this run). Recommended wait: `document.getElementById('continue-registered-user') && /^CONTINUE$/i.test((document.getElementById('continue-registered-user').textContent||'').trim())`."
+    },
+    {
+      "step": 20,
+      "businessName": "click CONTINUE on Step 1 (logged-in exit — advances to Step 2)",
+      "action": "click",
+      "id": "continue-registered-user",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpoaE0",
+      "text": "CONTINUE",
+      "notes": "Same element as step 13, text changed to 'CONTINUE' after successful signup. Same click pattern. Wait for #complete-order-authnet and #toggle-terms to appear on Step 2."
+    },
+    {
+      "step": 21,
+      "businessName": "click '+ Add Payment Method' on Step 2 (fresh user has no saved card)",
+      "action": "click",
+      "id": "btn-wg-add-payment-method",
+      "tag": "DIV",
+      "class": "bubble-element Text cpctg1 clickable-element",
+      "text": "+ Add Payment Method",
+      "notes": "Registry: `Authorize.net: \"Add Payment Method\" detour for first-order-per-logged-in-user`. Detour applies because the signup in step 18 created a brand-new Bubble user with no saved card — PAY NOW is inert without one. Clicking redirects to https://test.authorize.net/customer/addPayment (NOT payment/payment). Feature-detection pattern: check `document.getElementById('btn-wg-add-payment-method') && document.getElementById('btn-wg-add-payment-method').offsetParent !== null`; if present, take the detour before clicking PAY NOW."
+    },
+    {
+      "step": 22,
+      "businessName": "fill Authorize.net customer/addPayment form (card + billing)",
+      "action": "fill",
+      "id": null,
+      "tag": "",
+      "class": "",
+      "text": "",
+      "notes": "Registry: `Authorize.net: fill() silently ignored, validation requires pressSequentially`, `Authorize.net: field names are not the American spellings`, `Authorize.net: expiry date must be digits only`, `Authorize.net: First/Last name auto-populate from Step 1`. Fields: #cardNum='4007000000027', #expiryDate='0427' (digits only), #cvv='123', input[name=\"firstName\"]='GP' (SEE newGotchas — NOT auto-populated on customer/addPayment, contradicts payment/payment behavior), input[name=\"lastName\"]='TestUser' (triple-click + pressSequentially to overwrite), input[name=\"zip\"]='10001', input[name=\"address\"]='123 Test Street', input[name=\"city\"]='New York', input[name=\"state\"]='NY'. Use pressSequentially with delay: 30-40ms for every field."
+    },
+    {
+      "step": 23,
+      "businessName": "click SAVE on Authorize.net customer/addPayment (saves the card, no charge)",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "",
+      "text": "SAVE",
+      "notes": "Registry: `Authorize.net: \"Add Payment Method\" detour...` (SAVE, not Pay). Selector: `page.locator('button:has-text(\"SAVE\")').first()` — rendered uppercase. SAVE stays disabled if ANY required field is empty — notably firstName must be filled manually (see step 22 newGotcha). After click, page shows 'Your information has been saved.\\nContinue'."
+    },
+    {
+      "step": 24,
+      "businessName": "click Continue on Authorize.net confirmation to return to Bubble",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "",
+      "text": "Continue",
+      "notes": "Registry: `Authorize.net: wait for Continue button after Pay, then click to return to Bubble` (same pattern applies on the addPayment confirmation). Selector: `page.locator('button:has-text(\"Continue\")').first()`. Returns to Bubble at `?tab=tickets&authcreate=yes`."
+    },
+    {
+      "step": 25,
+      "businessName": "re-toggle Terms & Conditions (reset after addPayment round-trip)",
+      "action": "click",
+      "id": "toggle-terms",
+      "tag": "DIV",
+      "class": "bubble-element ionic-IonicToggle clickable-element",
+      "text": "",
+      "notes": "Registry: `Bubble ionic-toggle: resets after Authorize.net Add-Payment-Method detour` + `Bubble ionic-toggle: outer div click silently no-ops — click inner <label>`. CONFIRMED in this run: checkbox was unchecked after return. Click inner label: `document.getElementById('toggle-terms').querySelector('label').click()`. Verify `#toggle-terms input[type=checkbox]` is `checked=true` before PAY NOW."
+    },
+    {
+      "step": 26,
+      "businessName": "click PAY NOW on Step 2 — completes order WITHOUT Authorize.net redirect",
+      "action": "click",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "",
+      "text": "PAY NOW",
+      "notes": "Registry: `Authorize.net: \"Add Payment Method\" detour...` — second PAY NOW completes immediately (charges the saved card server-side). CONFIRMED in this run: URL stays on `8countlogin.com/.../?tab=tickets` (NO redirect to test.authorize.net), and the page transitions directly to 'Order Confirmed' heading. Order #BHTDH-9017 created; Bubble total $492.03."
+    },
+    {
+      "step": 27,
+      "businessName": "wait for success signal (Order Confirmed heading)",
+      "action": "wait",
+      "id": null,
+      "tag": "",
+      "class": "",
+      "text": "Order Confirmed",
+      "notes": "For this flow the success signal is the 'Order Confirmed' heading text — NOT the `?success=yes` URL flag. CONFIRMED in this run: `location.search` stayed at `?tab=tickets` (no `success=yes`) while body text cleanly showed 'Order Confirmed\\nOrder #BHTDH-9017'. Guest-checkout's waitForSuccess OR-check (`location.search.includes('success=yes') || <heading regex>`) still works because the heading branch fires here. See newGotchas for why this branch of the OR fires in this flow."
+    }
   ],
-  "steps": [],
-  "missingIdsOnStep1": [],
-  "step2DisplayIdsMissing": [],
-  "newGotchas": []
+  "missingIdsOnStep1": [
+    "REGISTER & SAVE INFO button has `#continue-registered-user` — captured, NOT missing, but worth noting the ID reuse across REGISTER → CONTINUE states (same element, different text).",
+    "'authorized cardholder' consent checkbox (same as guest-checkout — still no ID). Registry already tracks this.",
+    "Signup popup container has NO id — heading-text anchor is the only wait handle.",
+    "Signup popup Email input has NO id — targeted by `input[type=email]` filtered to `id === null` and `offsetParent !== null`.",
+    "Signup popup Password input has NO id — targeted by `input[type=password][placeholder=\"Password\"]`.",
+    "Signup popup Confirm password input has NO id — targeted by `input[type=password][placeholder=\"Confirm password\"]`.",
+    "Signup popup SIGN UP button has NO id — targeted by text `/^SIGN UP$/i`.",
+    "'stay up-to-date via email' opt-in checkbox (same as guest-checkout — still no id)."
+  ],
+  "step2DisplayIdsMissing": [
+    "Order Total display (shows $492.03) — no id.",
+    "CART subtotal header — no id.",
+    "Timer / countdown — no id.",
+    "Order Confirmed heading / order number display — no id (must match by text 'Order Confirmed' / regex `/Order #[A-Z0-9-]+/`)."
+  ],
+  "newGotchas": [
+    {
+      "title": "Bubble Step-1 (Guest→Register): REGISTER & SAVE INFO and post-signup CONTINUE share ID #continue-registered-user",
+      "symptom": "Writing two different selectors for the REGISTER button and the post-signup CONTINUE button yields two names for the same DOM element. The button's ID is stable; only its text changes after signup success.",
+      "cause": "Bubble re-uses the same Button element for both states; conditional text swaps REGISTER & SAVE INFO ↔ CONTINUE based on the current-user state.",
+      "fix": "Use `#continue-registered-user` for BOTH clicks (the pre-signup REGISTER and the post-signup advance-to-Step-2 CONTINUE). Wait between the two clicks by polling for the text flip: `/^CONTINUE$/i.test((document.getElementById('continue-registered-user').textContent||'').trim())` — this is the most reliable post-signup signal.",
+      "source": "Order #13 discovery, 2026-04-23."
+    },
+    {
+      "title": "Authorize.net customer/addPayment: firstName is NOT auto-populated from Step 1 (contradicts payment/payment behavior)",
+      "symptom": "SAVE button stays disabled after pressSequentially'ing every documented field. Inspecting form values shows `input[name=\"firstName\"]` is empty.",
+      "cause": "The Gotchas Registry entry `Authorize.net: First/Last name auto-populate from Step 1` describes behavior on the regular `payment/payment` redirect. The `customer/addPayment` variant only auto-populates lastName (from Step 1 Full Name last word) — firstName arrives empty, is required, and blocks SAVE.",
+      "fix": "On customer/addPayment, fill BOTH firstName and lastName explicitly via triple-click + pressSequentially. Existing lastName overwrite is fine; add a firstName fill before SAVE. Split the Step 1 full name on whitespace and pass first/last tokens, or use fixed tokens from settings.payment (firstName e.g. 'GP', lastName 'TestUser').",
+      "source": "Order #13 discovery, 2026-04-23."
+    },
+    {
+      "title": "guest-to-register-checkout: 2nd PAY NOW returns 'Order Confirmed' in-place — NO `?success=yes` URL flag, NO Authorize.net redirect",
+      "symptom": "After the Add-Payment-Method detour, the second PAY NOW (with a saved card) completes inline. URL stays on `?tab=tickets` — no redirect to test.authorize.net and no `?success=yes` flag ever appears.",
+      "cause": "Bubble charges the saved card server-side via a backend workflow, then replaces the Step 2 DOM with the Order Confirmed view. The `?success=yes` flag is set by the Authorize.net return redirect — it cannot fire when Authorize.net isn't part of the path.",
+      "fix": "For this flow, `waitForSuccess` must key on the Order Confirmed heading text — the existing OR-check (`location.search.includes('success=yes') || <heading regex>`) already handles this correctly because the heading branch fires. Flow-specific callers should NOT assume `?success=yes` is reachable.",
+      "source": "Order #13 discovery, 2026-04-23."
+    },
+    {
+      "title": "Authorize.net addPayment return URL flag: `?authcreate=yes` (not `?success=yes`)",
+      "symptom": "Watching location.search for the return-to-Bubble signal after the addPayment Continue button finds `?tab=tickets&authcreate=yes` — not any `success` flag.",
+      "cause": "Bubble distinguishes between card-saved-only returns (`authcreate=yes`) and purchase-succeeded returns (`success=yes`). The addPayment detour produces the former; only the main payment/payment flow produces the latter.",
+      "fix": "If the runner ever needs to confirm the addPayment round-trip landed (vs. still on test.authorize.net), key on `location.host === '8countlogin.com'` or `location.search.includes('authcreate=yes')`. Do NOT wait for `success=yes` at this intermediate point — it won't come until after the second PAY NOW in flows that redirect (guest), and it NEVER comes in this flow.",
+      "source": "Order #13 discovery, 2026-04-23."
+    }
+  ]
 }

@@ -23,6 +23,7 @@ const path = require("path");
 const { runOrder, loadSpec } = require("./run-order");
 
 const ROOT = path.join(__dirname, "..");
+const STATE_PATH = path.join(ROOT, "e2e-state.json");
 
 function parseArgs(argv) {
   const args = { only: null };
@@ -47,8 +48,70 @@ function loadOrderList(onlyArg) {
   return orders.orders.map((o) => o.orderNumber).sort((a, b) => a - b);
 }
 
+function readState() {
+  return JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
+}
+
+function writeState(state) {
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n", "utf8");
+}
+
+const FLOW_CHECKOUT_NAMES = {
+  "guest-checkout": "Guest",
+  "logged-in-checkout": "Logged-in",
+  "guest-to-register-checkout": "Guest→Register",
+  "guest-to-login-top-right": "Guest→Login top-right",
+  "register-to-login-checkout": "Register→Login"
+};
+
+function summarizeTickets(mix) {
+  return mix.map((t) => `${t.type}×${t.qty}`).join(" + ");
+}
+
+function checkoutLabel(spec) {
+  const base = FLOW_CHECKOUT_NAMES[spec.flow] || spec.flow;
+  const userId = spec.user && spec.user.id;
+  return userId ? `${base} (User ${userId})` : base;
+}
+
+function appendOrderToState(spec, order) {
+  const state = readState();
+  state.orders = state.orders || [];
+  state.orders = state.orders.filter((o) => o.orderNumber !== spec.orderNumber);
+  state.orders.push({
+    orderNumber: spec.orderNumber,
+    orderId: order._id,
+    tickets: summarizeTickets(spec.tickets),
+    promo: spec.promo || "None",
+    checkout: checkoutLabel(spec)
+  });
+  state.orders.sort((a, b) => a.orderNumber - b.orderNumber);
+  writeState(state);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  // Respect settings.flow.resetOrdersOnRun: wipe state.orders before the first
+  // purchase so Jest validation only sees the orders from this run. SKIP the
+  // wipe when --only was specified — that's an explicit subset rerun, the
+  // caller wants to merge new results into the existing state (retrying
+  // failed orders after a partial run).
+  const settingsPath = path.join(ROOT, "settings.json");
+  if (!args.only && fs.existsSync(settingsPath)) {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    if (settings.flow && settings.flow.resetOrdersOnRun) {
+      const state = readState();
+      if (Array.isArray(state.orders) && state.orders.length > 0) {
+        console.log(`[run-all] resetOrdersOnRun=true — clearing ${state.orders.length} prior orders from state.orders`);
+        state.orders = [];
+        writeState(state);
+      }
+    }
+  } else if (args.only) {
+    console.log(`[run-all] --only specified — preserving existing state.orders (subset rerun mode)`);
+  }
+
   const toRun = loadOrderList(args.only);
   console.log(`[run-all] running ${toRun.length} order(s) sequentially: ${toRun.join(", ")}`);
 
@@ -66,9 +129,11 @@ async function main() {
         results.push(entry);
         continue;
       }
-      const { total } = await runOrder(spec);
+      const { total, order } = await runOrder(spec);
       entry.ok = true;
       entry.total = total;
+      entry.orderId = order._id;
+      appendOrderToState(spec, order);
     } catch (err) {
       entry.ok = false;
       entry.error = err.message;

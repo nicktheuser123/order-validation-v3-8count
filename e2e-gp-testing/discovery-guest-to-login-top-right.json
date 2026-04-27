@@ -1,21 +1,261 @@
 {
   "flow": "guest-to-login-top-right",
   "version": "81rkv",
-  "capturedAt": null,
-  "status": "PENDING_DISCOVERY",
+  "capturedAt": "2026-04-23T05:34:00.000Z",
   "representativeOrder": {
     "orderNumber": 16,
-    "scenario": "Standard×3, no promo, User C logs in mid-cart via top-right popup"
+    "scenario": "Standard×3, no promo, User C logs in mid-cart via top-right popup",
+    "startedAt": "2026-04-23T05:30:28.000Z",
+    "completedAt": "2026-04-23T05:34:00.000Z",
+    "orderId": null,
+    "expectedTotal": 166.14
   },
-  "_todo": [
-    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
-    "Session name: -s=gp-discovery-guest-to-login-top-right.",
-    "Seed: Order #16 (Standard×3, no promo, User C).",
-    "Unique concern: verify that the cart persists through the login popup (tickets added as guest must still be in the cart after LOG IN). If the cart resets, the order of operations in runGuestLoginTopRightFlow needs to be reversed — log in BEFORE adding tickets.",
-    "All other selectors (loginViaPopup, applyPromoOnTickets) are shared with logged-in-checkout — once discovered there, this flow only needs the cart-persistence verification."
+  "cartPersistence": {
+    "persistedThroughLogin": true,
+    "probeBeforeLogin": "Probe: document.getElementById('ticket-quantity-dropdown').value (also body $ scan). Result BEFORE login: standardQty='3', cart subtotal visible (prices $50.00 x repeats). Standard card was in quantity-widget mode with qty=3.",
+    "probeAfterLogin": "Probe: same dropdown value + #gp-test-proceed-to-checkout visibility + visible #add-item count. Result AFTER login: standardQty='3', visibleAddItem=1, visibleAdd=3 (Standard still converted, other 3 cards still have ADD), gp-test-proceed-to-checkout visible. Cart is unchanged — same 3 Standard tickets. No re-add needed.",
+    "notes": "Key finding: Bubble's login popup does NOT clear the anonymous cart. The runner sequencer can SAFELY add tickets first, then log in mid-cart, without re-adding after login. The Login link (id=gp-test-login-link) is replaced with a Logout link after successful authentication (confirmed via gp-test-login-link.offsetParent === null post-login)."
+  },
+  "steps": [
+    {
+      "step": 1,
+      "businessName": "click Tickets button on landing view",
+      "action": "click",
+      "id": "gp-test-tickets-button",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaJvm flex-aligned-button",
+      "text": "Tickets",
+      "notes": "Shared with guest-checkout flow. URL becomes ?tab=tickets. Per Gotchas Registry '### Login flow: Login link only appears inside the tickets view' — the top-right Login link is NOT on the landing view and only appears after this click."
+    },
+    {
+      "step": 2,
+      "businessName": "click ADD on the Standard ticket card (1st time — transitions card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "Shared ID '#add' across all 4 ticket cards. Pick visible idx=0 (Standard) per '### Bubble shared IDs: #add and #add-item disambiguated by visibility + DOM order'."
+    },
+    {
+      "step": 3,
+      "businessName": "set Standard ticket quantity to 3 via #ticket-quantity-dropdown (native setter + change event)",
+      "action": "fill",
+      "id": "ticket-quantity-dropdown",
+      "tag": "SELECT",
+      "class": "bubble-element Dropdown cnpqaQ0",
+      "text": "",
+      "value": "3",
+      "notes": "After the initial ADD click the quantity dropdown was observed to read '4' (not 1) on this capture — seems to have auto-advanced. Rather than rely on '#add-item' click counts (which exist but are subject to the same Bubble input-event quirks), the discovery agent drove the dropdown directly with the native-setter+input+change pattern from '### Bubble input: el.value = x does not register'. An alternative kept for the sequencer: use clickVisibleByIdIndex('#add-item', 0) N-1 times to take qty 1→N. Either approach needs a fresh qty verification via the dropdown.value before proceeding."
+    },
+    {
+      "step": 4,
+      "businessName": "cart-state PROBE BEFORE login — capture Standard qty and PROCEED visibility",
+      "action": "probe",
+      "id": "ticket-quantity-dropdown",
+      "tag": "SELECT",
+      "class": "",
+      "text": "",
+      "notes": "eval: { standardQty: document.getElementById('ticket-quantity-dropdown').value, hasProceed: !!#gp-test-proceed-to-checkout (visible) }. Result: { standardQty: '3', hasProceed: true }. Recorded in cartPersistence.probeBeforeLogin above."
+    },
+    {
+      "step": 5,
+      "businessName": "click the top-right Login link in the tickets-view header",
+      "action": "click",
+      "id": "gp-test-login-link",
+      "tag": "H4",
+      "class": "bubble-element Text coaPaFs1 bubble-r-vertical-center clickable-element",
+      "text": "Login",
+      "notes": "The Login link is an H4 heading with its own ID — clicking it opens the Log In popup without any redirect or new tab. Per '### Browser session: never open new tabs, never navigate to separate login pages' this is the ONLY correct way to reach the login form from the tickets view."
+    },
+    {
+      "step": 6,
+      "businessName": "wait for Log In popup (heading 'Log in')",
+      "action": "wait",
+      "id": null,
+      "tag": "H2",
+      "class": "",
+      "text": "Log in",
+      "notes": "Anchor: heading 'Log in' [level=2]. Popup also exposes 'SIGN UP' button, Email + Password inputs, and a 'Reset Password' link. Neither the popup container, its heading, nor any of its form controls has a stable ID attribute — see missingIdsOnStep1."
+    },
+    {
+      "step": 7,
+      "businessName": "fill popup Email field with User C email",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxpg1 a1776922326747x16289",
+      "text": "",
+      "value": "abhjoseph+userc@gmail.com",
+      "notes": "No id. Selector: input[type=email][placeholder=\"Email\"]. Use '### Bubble input: el.value = x does not register' pattern — native value setter + input+change events. Class hash 'cnxpg1' might drift on republish; placeholder+type is the stable combo."
+    },
+    {
+      "step": 8,
+      "businessName": "fill popup Password field with User C password",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxph1 a1776922326747x16289",
+      "text": "",
+      "value": "Test123!",
+      "notes": "No id. Selector: input[type=password][placeholder=\"Password\"]. Same native-setter pattern as email field."
+    },
+    {
+      "step": 9,
+      "businessName": "click LOG IN button in popup",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpi1",
+      "text": "LOG IN",
+      "notes": "No id. Selector: Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && b.textContent.trim() === 'LOG IN'). Wait ~2-3s for popup to close; post-login signal is gp-test-login-link disappearing (offsetParent === null) and a 'Logout' link appearing in the header."
+    },
+    {
+      "step": 10,
+      "businessName": "cart-state PROBE AFTER login — verify persistence",
+      "action": "probe",
+      "id": "ticket-quantity-dropdown",
+      "tag": "SELECT",
+      "class": "",
+      "text": "",
+      "notes": "Same probe as step 4. Result: { standardQty: '3', hasProceed: true, visibleAdd: 3, visibleAddItem: 1 }. CART PERSISTED — no re-add. Recorded in cartPersistence.probeAfterLogin above. The tickets-view cart does NOT roundtrip to the server at login; it is local to the session and survives the popup auth flow."
+    },
+    {
+      "step": 11,
+      "businessName": "click PROCEED TO CHECKOUT",
+      "action": "click",
+      "id": "gp-test-proceed-to-checkout",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cnpqaZ0 bubble-r-container relative",
+      "text": "PROCEED TO CHECKOUT",
+      "notes": "Same primitive as guest-checkout. Transitions to Step 1; wait for #main-full-name visible."
+    },
+    {
+      "step": 12,
+      "businessName": "verify Step 1 contact fields are pre-filled from User C profile",
+      "action": "probe",
+      "id": "main-full-name",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpmv0 a1776848616453x26418",
+      "text": "",
+      "notes": "Observed values: main-full-name = 'GP E2E Order 16', main-email = 'abhjoseph+userc@gmail.com'. Both are pre-populated from User C's saved profile. Per task spec, when pre-filled leave as-is — do NOT overwrite. When a logged-in user's profile lacks these fields (e.g. a freshly-registered user), fall back to the native-setter pattern and fill 'GP Disc TopRight' / User C email."
+    },
+    {
+      "step": 13,
+      "businessName": "check 'contact info is same for all tickets' checkbox on Step 1",
+      "action": "click",
+      "id": "contact-info-same",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "The contact information is the same for all tickets",
+      "notes": "Shared with guest-checkout. After checking, per-ticket fields auto-fill from Contact Info."
+    },
+    {
+      "step": 14,
+      "businessName": "check the 'authorized cardholder' consent checkbox at bottom of Step 1",
+      "action": "click",
+      "id": null,
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cpmaJo1 bubble-r-container flex row",
+      "text": "I am the authorized cardholder for this purchase...",
+      "notes": "Still no id — see '### Bubble Step-1: authorized cardholder checkbox has no ID'. Selector: Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group')).find(e => e.textContent.includes('authorized cardholder'))."
+    },
+    {
+      "step": 15,
+      "businessName": "click CONTINUE on Step 1 (logged-in exit button)",
+      "action": "click",
+      "id": "continue-registered-user",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpoaE0",
+      "text": "CONTINUE",
+      "notes": "KEY DIFFERENCE FROM guest-checkout: the logged-in Step 1 exit button is '#continue-registered-user' (label 'CONTINUE'), NOT '#continue-as-guest' (label 'CONTINUE AS GUEST'). The guest-button ID is absent in this flow. Transitions to Step 2; wait for #toggle-terms + #complete-order-authnet visible."
+    },
+    {
+      "step": 16,
+      "businessName": "probe Step 2 payment panel — saved card vs Add Payment Method",
+      "action": "probe",
+      "id": null,
+      "tag": "DIV",
+      "class": "",
+      "text": "Current Payment Method",
+      "notes": "Observed on this run: User C has a SAVED CARD already (displayed as '**** **** **** 0027', Exp Date 2027-04). No '+ Add Payment Method' button is rendered. Radio 'Card' is pre-checked. PAY NOW is enabled once #toggle-terms is ON. If a future run of this flow exercises a freshly-created User C with no saved card, the runner must branch into the Authorize.net Add-Payment-Method detour per '### Authorize.net: Add Payment Method detour for first-order-per-logged-in-user' — click '+ Add Payment Method', fill card with pressSequentially, click SAVE, then re-toggle terms and click PAY NOW a second time."
+    },
+    {
+      "step": 17,
+      "businessName": "toggle the Terms & Conditions ionic toggle on Step 2",
+      "action": "click",
+      "id": "toggle-terms",
+      "tag": "DIV",
+      "class": "bubble-element ionic-IonicToggle clickable-element",
+      "text": "",
+      "notes": "Per '### Bubble ionic-toggle: outer div click silently no-ops — click inner <label>', click document.getElementById('toggle-terms').querySelector('label'). Verify #toggle-terms input[type=checkbox].checked === true before clicking PAY NOW."
+    },
+    {
+      "step": 18,
+      "businessName": "click PAY NOW on Step 2 — completes directly (saved card, no Authorize.net redirect)",
+      "action": "click",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "",
+      "text": "PAY NOW",
+      "notes": "Because User C has a saved card, clicking PAY NOW does NOT redirect to test.authorize.net. The checkout completes server-side and the same page re-renders with the 'Order Confirmed' heading. Observed: 'Order Confirmed' heading appeared within ~3-5s, URL remained /event/...?tab=tickets (no success=yes query appended in this template — key on the heading text, not the URL, for this flow). Contrast with guest-checkout where the order goes through Authorize.net's hosted form."
+    },
+    {
+      "step": 19,
+      "businessName": "wait for success — heading 'Order Confirmed' visible",
+      "action": "wait",
+      "id": null,
+      "tag": "H",
+      "class": "",
+      "text": "Order Confirmed",
+      "notes": "Success signal is the 'Order Confirmed' heading. Per '### Authorize.net: post-return success heading is too brief — key on the URL query', we normally OR the heading with a success=yes query check. For this logged-in-with-saved-card branch the heading DID persist long enough to be polled deterministically (no redirect roundtrip, so no URL-flag race). Keep the OR for safety."
+    }
   ],
-  "steps": [],
-  "missingIdsOnStep1": [],
-  "step2DisplayIdsMissing": [],
-  "newGotchas": []
+  "missingIdsOnStep1": [
+    "login popup heading (H2 'Log in') — no id",
+    "login popup Email input — no id (currently selected via input[type=email][placeholder=\"Email\"])",
+    "login popup Password input — no id (currently selected via input[type=password][placeholder=\"Password\"])",
+    "login popup LOG IN button — no id (currently selected via button text)",
+    "login popup SIGN UP button — no id (affects register-to-login-checkout flow)",
+    "login popup Reset Password link — no id",
+    "'authorized cardholder' consent checkbox — unchanged from guest-checkout; still needs an id",
+    "CART subtotal text in header (shows 'CART$166.14') — would be useful to wait on after cart mutations and after login to assert persistence deterministically"
+  ],
+  "step2DisplayIdsMissing": [
+    "'Current Payment Method' group container — no id (currently located by text match)",
+    "saved-card display '**** **** **** 0027' — no id (useful to assert 'saved card present' deterministically before deciding whether to take the Add-Payment-Method branch)",
+    "'+ Add Payment Method' button — no id in the 'no saved card' case (not observed this run; flagged for the register/E2E-first-order branch)",
+    "Change Payment Method / Remove Payment Method links — no id",
+    "Order Total display — no id (same as guest-checkout)"
+  ],
+  "newGotchas": [
+    {
+      "component": "Bubble tickets-view cart",
+      "symptom": "Sequencer design question: if the anonymous cart is cleared at login, the guest-to-login-top-right flow has to be reversed (login first, THEN add tickets).",
+      "cause": "Unknown — depends on whether Bubble's session storage is re-keyed on authentication.",
+      "fix": "VERIFIED on 2026-04-23: the cart PERSISTS through the top-right login popup. 3 Standard tickets added as guest remained in the cart post-login, quantity dropdown value unchanged, PROCEED TO CHECKOUT still visible. No cart migration needed. Sequencer can keep the natural order: land → Tickets → add Std×3 as guest → Login top-right → popup → LOG IN → PROCEED TO CHECKOUT. If this ever changes on a future republish, the probe-before/probe-after dropdown comparison in this discovery will flag it immediately.",
+      "source": "Order #16 discovery, 2026-04-23."
+    },
+    {
+      "component": "Bubble Step-1 logged-in exit button",
+      "symptom": "Sequencer primitives built for guest-checkout look for '#continue-as-guest' on Step 1, but in the logged-in branch that id does not exist.",
+      "cause": "Bubble renders a different button when the user is authenticated: '#continue-registered-user' with label 'CONTINUE'. '#continue-as-guest' is conditionally hidden for logged-in users.",
+      "fix": "In fragmentStep1Consent (or equivalent primitive) branch on login state: if the user is logged in, click '#continue-registered-user'; otherwise click '#continue-as-guest'. Waiting on BOTH ids makes the primitive mode-agnostic: pwEval(() => ({ loggedIn: !!document.getElementById('continue-registered-user'), guest: !!document.getElementById('continue-as-guest') })).",
+      "source": "Order #16 discovery, 2026-04-23."
+    },
+    {
+      "component": "Bubble Step-2 saved-card payment",
+      "symptom": "PAY NOW on a logged-in user with a saved card does NOT redirect to Authorize.net — the order completes in-place.",
+      "cause": "When a Customer Payment Profile exists, Bubble's backend charges it server-side via a direct Authorize.net API call rather than using the hosted payment page.",
+      "fix": "The waitForSuccess primitive must tolerate both paths: (a) redirect-and-return (guest and first-order-logged-in with Add-Payment-Method detour), and (b) in-place completion (saved-card logged-in). Both land on the same 'Order Confirmed' heading, but (b) never has a success=yes query appended in this event template. The existing URL-OR-heading wait pattern already covers this — just make sure Authorize.net navigation is NOT required for success in this flow's runner branch.",
+      "source": "Order #16 discovery, 2026-04-23."
+    },
+    {
+      "component": "Bubble ticket-quantity-dropdown (post-ADD auto-increment)",
+      "symptom": "Clicking '#add' on a ticket card one time did NOT leave the quantity at 1 — the dropdown read '4' after a single ADD click on this event template.",
+      "cause": "Unclear — may be stale state from a prior probe, or the event's ticket-card component auto-advances qty on mount. Needs verification on a clean re-open.",
+      "fix": "Rather than relying on click-count accounting, drive the quantity directly via '#ticket-quantity-dropdown' with the native setter + input+change event pattern. Cheap, deterministic, and matches the spec for each order without exercising the ADD/+ counter semantics.",
+      "source": "Order #16 discovery, 2026-04-23. Flagged for re-validation during the logged-in-checkout discovery pass, which will also exercise this widget."
+    }
+  ]
 }

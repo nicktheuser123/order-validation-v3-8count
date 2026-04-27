@@ -1,26 +1,330 @@
 {
   "flow": "logged-in-checkout",
   "version": "81rkv",
-  "capturedAt": null,
-  "status": "PENDING_DISCOVERY",
+  "capturedAt": "2026-04-23T05:32:41.995Z",
   "representativeOrder": {
     "orderNumber": 6,
-    "scenario": "Standard × 5, FLAT10 promo, Logged-in (User A)"
+    "scenario": "Standard × 5, FLAT10 promo, Logged-in (User A)",
+    "startedAt": "2026-04-23T05:28:55.000Z",
+    "completedAt": "2026-04-23T05:38:01.000Z",
+    "orderId": "1776922361706x730594411426349000",
+    "orderIdText": "DHLBY-6978",
+    "expectedTotal": 282.50
   },
-  "_todo": [
-    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
-    "Session name: -s=gp-discovery-logged-in-checkout.",
-    "Seed: Order #6 (Standard × 5, FLAT10, User A).",
-    "Capture selectors needed by the scaffolded primitives in run-order.js:",
-    "  - loginViaPopup: top-right Login link in tickets view; popup email field; popup password field; LOG IN button; post-login state signal (Login link gone?).",
-    "  - applyPromoOnTickets: ENTER PROMO CODE link at bottom of tickets page; promo input field; submit/apply button; what to wait on for cart subtotal update.",
-    "  - fragmentStep1Contact loggedIn mode: does the form auto-fill? What's the exit button (CONTINUE? PROCEED TO PAYMENT? different from CONTINUE AS GUEST)?",
-    "  - addPaymentMethod: '+ Add Payment Method' button ID on Step 2. SAVE button selector on customer/addPayment (likely button:has-text('Save')).",
-    "Then set capturedAt to the ISO run timestamp and fill in steps[] following the same schema as discovery-guest-checkout.json.",
-    "Promote any newGotchas entries into the Gotchas Registry at the bottom of runbook.md."
+  "steps": [
+    {
+      "step": 1,
+      "businessName": "click Tickets button on landing view",
+      "action": "click",
+      "id": "gp-test-tickets-button",
+      "tag": "BUTTON",
+      "class": "clickable-element flex-aligned-button bubble-element Button coaJvm",
+      "text": "Tickets",
+      "notes": "Same as guest-checkout step 1. Transitions URL to ?tab=tickets and reveals the top-right Login link."
+    },
+    {
+      "step": 2,
+      "businessName": "click Login link top-right in tickets view",
+      "action": "click",
+      "id": "gp-test-login-link",
+      "tag": "H4",
+      "class": "bubble-element Text coaPaFs1 bubble-r-vertical-center clickable-element",
+      "text": "Login",
+      "notes": "Cited Gotchas Registry: 'Login flow: Login link only appears inside the tickets view' — link is absent on landing page, only visible after #gp-test-tickets-button click. The heading is inside a container div #button-back-to-event-page which contains BOTH 'Back' and 'Login' headings — click the H4#gp-test-login-link directly rather than the container."
+    },
+    {
+      "step": 3,
+      "businessName": "wait for Log in popup (heading 'Log in' appears)",
+      "action": "wait",
+      "id": null,
+      "tag": "H2",
+      "class": "bubble-element Text cnxpc1 bubble-r-vertical-center",
+      "text": "Log in",
+      "notes": "Popup heading is H2 with text 'Log in'. NO id on the heading, popup container, or any popup field. Cited Gotchas Registry: 'UI transitions: wait for specific visible elements, not waitForTimeout' — anchor to heading text."
+    },
+    {
+      "step": 4,
+      "businessName": "fill Email in Log in popup",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxpg1 a1776922181161x15883",
+      "text": "",
+      "value": "abhjoseph+usera@gmail.com",
+      "notes": "NO id on the email input. Select via `input[placeholder=\"Email\"]` + visibility filter: `Array.from(document.querySelectorAll('input[placeholder=\"Email\"]')).find(e => e.offsetParent !== null)`. Cited Gotchas Registry: 'Bubble input: el.value = x does not register — native setter + events required' — use fillBubbleInput helper pattern (native value setter + input+change events)."
+    },
+    {
+      "step": 5,
+      "businessName": "fill Password in Log in popup",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxph1 a1776922181161x15883",
+      "text": "",
+      "value": "Test123!",
+      "notes": "NO id on the password input. Select via `input[type=\"password\"]` + visibility filter. Same native-setter+events pattern as step 4."
+    },
+    {
+      "step": 6,
+      "businessName": "click LOG IN button in popup",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpi1",
+      "text": "LOG IN",
+      "notes": "NO id on the LOG IN button. Select via `button` text-match filter: `Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'LOG IN' && b.offsetParent !== null)`. Post-login signal: #gp-test-login-link becomes offsetParent === null AND #gp-test-logout-link becomes visible (this is the reliable indicator to wait on)."
+    },
+    {
+      "step": 7,
+      "businessName": "wait for logged-in state (Logout link visible)",
+      "action": "wait",
+      "id": "gp-test-logout-link",
+      "tag": "H4",
+      "class": "bubble-element Text cotiaU1 bubble-r-vertical-center clickable-element",
+      "text": "Logout",
+      "notes": "`#gp-test-logout-link` replaces `#gp-test-login-link` after successful login. Wait condition: `document.getElementById('gp-test-logout-link')?.offsetParent !== null`. The popup also auto-closes on success; don't rely on popup-disappearance alone — wait on the Logout link."
+    },
+    {
+      "step": 8,
+      "businessName": "click ADD on the Standard ticket card (1st time — transitions card to quantity widget)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "Same as guest-checkout step 2. Cited Gotchas Registry: 'Bubble shared IDs: #add and #add-item disambiguated by visibility + DOM order'. Use clickVisibleByIdIndex('add', 0) — Standard is the first visible #add."
+    },
+    {
+      "step": 9,
+      "businessName": "click the + icon on the Standard ticket card (2nd unit — qty 1→2)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "On tickets view with only Standard card active, #add-item is unique-visible. clickVisibleByIdIndex('add-item', 0). Wait/throttle 400-800ms between clicks — back-to-back rapid clicks can get dropped by Bubble (observed: 4 sequential clicks resulted in qty going only 1→3 instead of 1→5 on one probe; a trailing check of #ticket-quantity-dropdown.value is the reliable confirmation)."
+    },
+    {
+      "step": 10,
+      "businessName": "click + on Standard (3rd unit — qty 2→3)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Same as step 9."
+    },
+    {
+      "step": 11,
+      "businessName": "click + on Standard (4th unit — qty 3→4)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "Same as step 9."
+    },
+    {
+      "step": 12,
+      "businessName": "click + on Standard (5th unit — qty 4→5)",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "add",
+      "notes": "After this step verify via `document.getElementById('ticket-quantity-dropdown').value === '5'`. #ticket-quantity-dropdown is a <select> on the active ticket card — useful as the observable cart-state signal for this flow."
+    },
+    {
+      "step": 13,
+      "businessName": "click ENTER PROMO CODE button at bottom of tickets view",
+      "action": "click",
+      "id": "btn-enterpromo-code",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaY0",
+      "text": "ENTER PROMO CODE",
+      "notes": "Single element, unique id. Transitions the bottom region to show the promo-entry sub-form (#input-enter-promo + #btn-submit-promo + #btn-promo-submit-cancel). Must be clicked AFTER tickets are in cart — if clicked with an empty cart the sub-form shows the warning 'Select your tickets first, then apply your promo code.' and the cart fee calculation does not run."
+    },
+    {
+      "step": 14,
+      "businessName": "fill promo code input",
+      "action": "fill",
+      "id": "input-enter-promo",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnppaS0 a1776922181161x15883",
+      "text": "",
+      "value": "FLAT10",
+      "notes": "Cited Gotchas Registry: 'Bubble input: el.value = x does not register — native setter + events required'. Use fillBubbleInput('input-enter-promo', 'FLAT10')."
+    },
+    {
+      "step": 15,
+      "businessName": "click SUBMIT to apply promo",
+      "action": "click",
+      "id": "btn-submit-promo",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnppaX0",
+      "text": "SUBMIT",
+      "notes": "Single element, unique id. After click, wait 2-3s for the promo-applied panel to render. Observable signal that promo applied: a new heading row appears with the promo code ('FLAT10'), description ('Flat 10 Dollar Off'), and '-$10.00' amount — the bottom button also changes from 'ENTER PROMO CODE' to 'PROMOTION APPLIED'. Cart subtotal display: no explicit #cart-subtotal ID visible on tickets page — the cart heading shows the live total once the cart overlay opens on PROCEED TO CHECKOUT or from the top cart icon. Logged in `missingIdsOnStep*`."
+    },
+    {
+      "step": 16,
+      "businessName": "click PROCEED TO CHECKOUT",
+      "action": "click",
+      "id": "gp-test-proceed-to-checkout",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cnpqaZ0 bubble-r-container relative",
+      "text": "PROCEED TO CHECKOUT",
+      "notes": "Same as guest-checkout step 7. Click via el.click(). Transition to Step 1 takes ~2s; wait for #main-full-name visible."
+    },
+    {
+      "step": 17,
+      "businessName": "observe Step 1 Contact Info is auto-populated from logged-in user profile",
+      "action": "wait",
+      "id": "main-full-name",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpmv0 a1776848616453x26418",
+      "text": "",
+      "notes": "For logged-in users, #main-full-name is pre-filled with the user's stored 'PaymentMethod Name' / profile full name (e.g. 'GP E2E Order 06' for User A) and #main-email is pre-filled with the logged-in email ('abhjoseph+usera@gmail.com'). Do NOT overwrite unless the test spec asks for a different contact name/email. The Step 1 fragment for logged-in mode only needs to (a) optionally overwrite contact, (b) check the two consent boxes, (c) click CONTINUE (NOT CONTINUE AS GUEST)."
+    },
+    {
+      "step": 18,
+      "businessName": "check 'contact info is same for all tickets' checkbox",
+      "action": "click",
+      "id": "contact-info-same",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element",
+      "text": "checkThe contact information is the same for all tickets",
+      "notes": "Same ID as guest-checkout. On logged-in flow the per-ticket rows are pre-filled with the user's name+email already, so checking this box is effectively idempotent but is still required for the CONTINUE button to enable."
+    },
+    {
+      "step": 19,
+      "businessName": "check the 'authorized cardholder' consent checkbox (just above CONTINUE)",
+      "action": "click",
+      "id": "btn-auth-card-holder-confirm",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cpmaJo1 bubble-r-container flex row",
+      "text": "checkI am the authorized cardholder for this purchase...",
+      "notes": "*** NEW ID: #btn-auth-card-holder-confirm *** — the user added this ID since the guest-checkout discovery run on 2026-04-22 (which logged it in its missingIdsOnStep1 as 'authorized cardholder consent checkbox needs an id'). Guest-checkout runner still uses the class+text fallback — SHOULD be updated to use this ID now. Without this box checked the CONTINUE button stays greyed out. The Gotchas Registry entry 'Bubble Step-1: authorized cardholder checkbox has no ID' can be removed / marked resolved."
+    },
+    {
+      "step": 20,
+      "businessName": "click CONTINUE on Step 1 (logged-in variant — replaces CONTINUE AS GUEST)",
+      "action": "click",
+      "id": "continue-registered-user",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpoaE0",
+      "text": "CONTINUE",
+      "notes": "*** LOGGED-IN EXIT BUTTON: label is 'CONTINUE', id is #continue-registered-user. *** This replaces the #continue-as-guest button that appears in the guest flow. Both IDs exist in the DOM but only one is visible depending on auth state. The sequencer for logged-in-checkout must branch on auth state and click #continue-registered-user here. Button is greyed out until BOTH #contact-info-same AND #btn-auth-card-holder-confirm are checked. Transition to Step 2 takes ~3-4s; wait for #toggle-terms AND #complete-order-authnet to become visible."
+    },
+    {
+      "step": 21,
+      "businessName": "observe Step 2 payment state — SAVED CARD present for returning user",
+      "action": "wait",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaMjaW3",
+      "text": "COMPLETE ORDER",
+      "notes": "*** CRITICAL STATE OBSERVATION *** For User A on this discovery run, a saved card '**** **** **** 0027' was already attached from prior orders. In this SAVED-CARD state: (a) the button at #complete-order-authnet shows text 'COMPLETE ORDER' (NOT 'PAY NOW'); (b) #btn-wg-add-payment-method is visible and labelled 'Change Payment Method'; (c) #btn-wg-remove-payment-method is visible and labelled 'Remove Payment Method'; (d) clicking #complete-order-authnet completes the order WITHOUT any redirect to Authorize.net — the saved card is charged server-side. In the NO-SAVED-CARD state (freshly created user, first order): the button at #btn-wg-add-payment-method would instead be labelled '+ Add Payment Method' (same element ID, different label text), PAY NOW would be inert, and the flow must follow the Authorize.net customer/addPayment detour documented in the Gotchas Registry entry 'Authorize.net: Add Payment Method detour for first-order-per-logged-in-user'. The sequencer MUST branch on: `document.getElementById('btn-wg-remove-payment-method')?.offsetParent !== null` (saved card present) vs. absent (no saved card — run detour)."
+    },
+    {
+      "step": 22,
+      "businessName": "toggle Terms & Conditions",
+      "action": "click",
+      "id": "toggle-terms",
+      "tag": "DIV",
+      "class": "bubble-element ionic-IonicToggle clickable-element",
+      "text": "",
+      "notes": "Cited Gotchas Registry: 'Bubble ionic-toggle: outer div click silently no-ops — click inner <label>'. Pattern: `document.getElementById('toggle-terms').querySelector('label').click()` then verify `document.querySelector('#toggle-terms input[type=checkbox]').checked === true`."
+    },
+    {
+      "step": 23,
+      "businessName": "click COMPLETE ORDER (saved-card path — no Authorize.net redirect)",
+      "action": "click",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaMjaW3",
+      "text": "COMPLETE ORDER",
+      "notes": "Saved-card path: clicking this completes the order directly — no redirect to test.authorize.net. Wait for success via the same condition used in guest-checkout: `location.search.includes('success=yes') || /Order Confirmed|Purchase Completed/i.test(document.body.innerText)`. On this run the success URL did NOT receive the `?success=yes` query (URL stayed at `?tab=tickets`) but the success-page heading 'Order Confirmed' appeared in the DOM and persisted (unlike the Authorize.net return path where the heading is ephemeral per Gotchas Registry entry 'Authorize.net: post-return success heading is too brief'). Saved-card path success signal: check the heading text FIRST, then URL. Cited Gotchas Registry: 'Bubble async backend: tax/custom-fee workflow runs AFTER the success URL flag' — still applies; reconcile after 30s+ of order creation."
+    },
+    {
+      "step": 24,
+      "businessName": "(ALTERNATE PATH, not executed live) for no-saved-card users: click + Add Payment Method",
+      "action": "click",
+      "id": "btn-wg-add-payment-method",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element (classes may differ in no-saved-card state)",
+      "text": "+ Add Payment Method",
+      "notes": "*** NOT EXERCISED IN THIS DISCOVERY RUN because User A had a saved card from prior orders. *** Based on the Gotchas Registry entry 'Authorize.net: Add Payment Method detour for first-order-per-logged-in-user', the expected flow for a fresh logged-in user on Step 2 is: (1) click #btn-wg-add-payment-method (labelled '+ Add Payment Method' when no card saved) — redirects to test.authorize.net/customer/addPayment (DIFFERENT endpoint from the regular /payment/payment); (2) fill card+billing via pressSequentially with 30-40ms delay (Gotchas Registry: 'Authorize.net: fill() silently ignored, validation requires pressSequentially'); (3) handle lastName auto-populate via triple-click + pressSequentially (Gotchas Registry: 'Authorize.net: First/Last name auto-populate from Step 1'); (4) click button:has-text('Save') (NOT 'Pay' — addPayment endpoint uses SAVE); (5) returns to Step 2 — #toggle-terms RESETS to off (Gotchas Registry: 'Bubble ionic-toggle: resets after Authorize.net Add-Payment-Method detour') — re-toggle; (6) click #complete-order-authnet — second click completes without redirect. A workaround to exercise this path on an already-setup user is to click #btn-wg-remove-payment-method first (which shows a 'Payment Method deleted Successfully' toast but appears to need a page reload before the DOM reflects the card as removed — observed inconsistent behavior). For now the logged-in-checkout sequencer must support both paths and branch based on saved-card detection."
+    }
   ],
-  "steps": [],
-  "missingIdsOnStep1": [],
-  "step2DisplayIdsMissing": [],
-  "newGotchas": []
+  "missingIdsOnStep1": [
+    "'I would like to stay up-to-date on events' opt-in checkbox (Step 1 row below contact-info-same) — no id",
+    "Per-ticket Full Name input rows (Standard #1 through Standard #5 in this test) — no individual ids; auto-fill from contact-info-same so not critical",
+    "Per-ticket Email inputs — same (no ids, auto-filled)"
+  ],
+  "step2DisplayIdsMissing": [
+    "Order Total / running-total display in the Step 2 summary panel — no id",
+    "Cart subtotal header / timer (30:00 countdown) — no ids (same as guest-checkout discovery)",
+    "Saved-card display '**** **** **** 0027' + 'Exp Date: YYYY-MM' — no ids (useful as saved-card-present observable signal; currently detected via text content)"
+  ],
+  "loginPopupMissingIds": [
+    "Login popup container (the outer Group containing the 'Log in' heading) — no id",
+    "Popup 'Log in' heading (H2) — no id (use text-match)",
+    "Email input (type=email, placeholder='Email') — no id",
+    "Password input (type=password, placeholder='Password') — no id",
+    "LOG IN button — no id",
+    "SIGN UP button — no id",
+    "Reset Password link — no id",
+    "Close-popup button (top-right X) — no id"
+  ],
+  "newGotchas": [
+    {
+      "heading": "Bubble checkout Step 2: logged-in button text switches 'PAY NOW' ↔ 'COMPLETE ORDER' depending on saved-card state",
+      "symptom": "Tests asserting `button:has-text(\"PAY NOW\")` on Step 2 for logged-in users fail intermittently. The button with id #complete-order-authnet renders 'PAY NOW' when no saved card exists and 'COMPLETE ORDER' when a saved card is attached.",
+      "cause": "Bubble workflow conditionally sets the button label based on whether the logged-in user has a saved payment method (via the Current Payment Method group).",
+      "fix": "Select by id (#complete-order-authnet), not by button text. For end-to-end flow branching, detect saved-card presence via `document.getElementById('btn-wg-remove-payment-method')?.offsetParent !== null` (truthy = saved card present, saved-card path; falsy = no card, run Add-Payment-Method detour).",
+      "source": "logged-in-checkout discovery run, 2026-04-23 (Order #6 replay, User A)."
+    },
+    {
+      "heading": "Bubble checkout Step 2: #btn-wg-add-payment-method label depends on saved-card state",
+      "symptom": "Searching by button text '+ Add Payment Method' on Step 2 for a logged-in user can return nothing even though the same element exists with id #btn-wg-add-payment-method.",
+      "cause": "The element at #btn-wg-add-payment-method is re-labelled 'Change Payment Method' when the user already has a saved card, and '+ Add Payment Method' when they don't. The ID is stable; the text is not.",
+      "fix": "Always target #btn-wg-add-payment-method by ID. Use text only to distinguish states (and prefer detecting saved-card presence via #btn-wg-remove-payment-method visibility).",
+      "source": "logged-in-checkout discovery run, 2026-04-23."
+    },
+    {
+      "heading": "Bubble Step-1: NEW ID #btn-auth-card-holder-confirm added — registry entry now stale",
+      "symptom": "Existing Gotchas Registry entry 'Bubble Step-1: authorized cardholder checkbox has no ID' still advises the class+text fallback, but the user has since added an ID on the checkbox.",
+      "cause": "The user added `btn-auth-card-holder-confirm` as the ID Attribute on the 'authorized cardholder' Group checkbox between the guest-checkout discovery (2026-04-22) and the logged-in-checkout discovery (2026-04-23).",
+      "fix": "Target `#btn-auth-card-holder-confirm` directly. Update the guest-checkout runner's completeStep1Consent / authorized-cardholder step to use this ID. Remove / mark resolved the old Gotchas Registry entry.",
+      "source": "logged-in-checkout discovery run, 2026-04-23."
+    },
+    {
+      "heading": "Login popup: zero IDs across all interactive fields — must fall back to placeholder + visibility selectors",
+      "symptom": "Attempting `document.getElementById('...')` on any login-popup field returns null. The popup has no IDs on its container, heading, inputs, or buttons.",
+      "cause": "The login popup was built as a Bubble CustomElement reusable; the user-added ID Attributes were applied to the event-page shell and checkout fragments but not to the popup's internal element tree.",
+      "fix": "Until the user adds IDs: select email via `input[placeholder=\"Email\"]` + offsetParent filter; password via `input[type=\"password\"]` + offsetParent filter; LOG IN / SIGN UP buttons via text-match on `button` + offsetParent filter. The logged-in-state signal (#gp-test-logout-link visibility) is the reliable popup-closed-successfully indicator — DO NOT rely on popup-disappearance alone. Request IDs on: popup container, email input, password input, LOG IN button, SIGN UP button, popup close-X button.",
+      "source": "logged-in-checkout discovery run, 2026-04-23."
+    },
+    {
+      "heading": "Bubble checkout Step 2: saved-card path completes without ?success=yes query — key only on DOM heading",
+      "symptom": "waitForSuccess relying on `location.search.includes('success=yes')` never resolves on the saved-card path. The URL stays at `?tab=tickets` after the order completes.",
+      "cause": "The `?success=yes` query is set specifically by the Authorize.net return path (after Continue on the interstitial). The saved-card path never leaves Bubble, so the redirect that sets the query never fires.",
+      "fix": "`waitForSuccess` must accept EITHER `location.search.includes('success=yes')` OR the 'Order Confirmed' / 'Purchase Completed' heading text. On the saved-card path, the 'Order Confirmed' heading PERSISTS in the DOM (unlike the Authorize.net return path where it's ephemeral per existing registry entry) — so DOM polling is reliable here. Suggested condition: `location.search.includes('success=yes') || /Order Confirmed|Purchase Completed/i.test(document.body.innerText)` (this is already what the existing helper does; this entry documents that the URL condition alone is insufficient for logged-in-checkout).",
+      "source": "logged-in-checkout discovery run, 2026-04-23."
+    },
+    {
+      "heading": "Bubble checkout Step 2: page reload on Step 1/2 survives cart but un-checks consent checkboxes; CONTINUE button re-greys",
+      "symptom": "After `page.reload()` on Step 1 of the logged-in checkout, the cart subtotal and ticket quantities persist, BUT #contact-info-same and #btn-auth-card-holder-confirm are both reset to unchecked and CONTINUE becomes greyed out again.",
+      "cause": "Bubble checkbox state is client-side only for these consent boxes; page reload clears the local state even though the server-side cart session persists.",
+      "fix": "After any reload on checkout, re-check both consent boxes before clicking #continue-registered-user. Not a blocker for the primary deterministic flow (which doesn't reload mid-checkout) but relevant for any error-recovery logic.",
+      "source": "logged-in-checkout discovery run, 2026-04-23 (observed while attempting to force a no-saved-card state by removing the payment method)."
+    },
+    {
+      "heading": "Bubble checkout Step 2: Remove Payment Method does NOT visibly remove the card from the DOM within a few seconds",
+      "symptom": "Clicking #btn-wg-remove-payment-method shows a success toast 'Payment Method deleted Successfully' but the saved-card display ('**** **** **** 0027') and #btn-wg-remove-payment-method itself remain visible. Subsequent PAY NOW still uses the saved card.",
+      "cause": "Unconfirmed — may be eventual-consistency between the remove workflow and the Step 2 UI, or the UI may only reflect removal after a full session / Bubble sync.",
+      "fix": "Do not rely on Remove Payment Method + re-probe inside a single Step-2 visit to force the no-saved-card path. To exercise the Add-Payment-Method detour with a pre-existing user, either (a) use a freshly-registered user (e.g. Users D/E/F before their first login), or (b) remove the payment method via the Bubble Data API (`DELETE /api/1.1/obj/payment_method/<id>` or similar) before starting the run. Flagged as a potential UX bug to report to the app owner.",
+      "source": "logged-in-checkout discovery run, 2026-04-23."
+    }
+  ]
 }

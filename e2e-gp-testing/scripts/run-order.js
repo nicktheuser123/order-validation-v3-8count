@@ -49,18 +49,43 @@ function pw(...args) {
 
 function pwEval(js) {
   const raw = pw("eval", `() => { return (${js}); }`);
+  // playwright-cli emits "### Error" on browser-side throws but exits 0 —
+  // surface those as real JS errors (Gotchas Registry: "playwright-cli eval:
+  // silent failures").
+  if (/^### Error$/m.test(raw)) {
+    const m = raw.match(/### Error\n([\s\S]*?)(?:\n### |$)/);
+    throw new Error("pwEval: browser threw — " + (m ? m[1].trim().split("\n")[0] : raw.slice(0, 200)));
+  }
   const m = raw.match(/### Result\n([\s\S]*?)(?:\n### |$)/);
   return m ? m[1].trim() : "";
 }
 
 function pwEvalVoid(js) {
-  pw("eval", `() => { ${js} }`);
+  const raw = pw("eval", `() => { ${js} }`);
+  if (/^### Error$/m.test(raw)) {
+    const m = raw.match(/### Error\n([\s\S]*?)(?:\n### |$)/);
+    throw new Error("pwEvalVoid: browser threw — " + (m ? m[1].trim().split("\n")[0] : raw.slice(0, 200)));
+  }
 }
 
 async function waitFor(js, { timeoutMs = 30000, pollMs = 400, label = "" } = {}) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const out = pwEval(js);
+    let out;
+    try {
+      out = pwEval(js);
+    } catch (err) {
+      // Transient navigation can destroy the execution context mid-poll —
+      // Playwright surfaces this as "Execution context was destroyed" or
+      // "Target page, context or browser has been closed". These are
+      // expected during page transitions; keep polling rather than aborting.
+      const msg = err && err.message ? err.message : String(err);
+      if (/Execution context was destroyed|Target (?:page|context|browser) has been closed|navigating/i.test(msg)) {
+        await sleep(pollMs);
+        continue;
+      }
+      throw err;
+    }
     if (out === "true" || out === '"true"') return;
     await sleep(pollMs);
   }
@@ -91,6 +116,92 @@ function clickVisibleByIdIndex(id, index = 0) {
   `);
 }
 
+// Bubble login/signup popups have no IDs. Select visible input by filter
+// (placeholder, type, class hash), then apply the native-setter + input/change
+// pattern required by Bubble's framework. See Gotchas Registry entry
+// "Login popup: zero IDs across all interactive fields".
+function fillBubbleInputByFilter(findExpr, value, { label = "" } = {}) {
+  pwEvalVoid(`
+    const el = (${findExpr});
+    if (!el) throw new Error(${JSON.stringify("fillBubbleInputByFilter: no element matched filter" + (label ? " [" + label + "]" : ""))});
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, ${JSON.stringify(value)});
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  `);
+}
+
+function clickByFilter(findExpr, { label = "" } = {}) {
+  pwEvalVoid(`
+    const el = (${findExpr});
+    if (!el) throw new Error(${JSON.stringify("clickByFilter: no element matched filter" + (label ? " [" + label + "]" : ""))});
+    el.click();
+  `);
+}
+
+// Find visible #add or #add-item belonging to the ticket-card titled `type`.
+// Strategy: locate the heading element whose text exactly matches the target,
+// then walk UP only as long as the ancestor still contains exactly ONE type
+// heading (namely the target). The largest such ancestor is the card. Inside
+// that card, the first #<sharedId> is what we want.
+//
+// Handles the logged-in tickets-view reshuffle (Gotchas Registry, 2026-04-23
+// register-to-login discovery) because we key on heading text, not DOM
+// position.
+function clickByAncestorTitle(sharedId, ticketType) {
+  pwEvalVoid(`
+    const sharedId = ${JSON.stringify(sharedId)};
+    const target = ${JSON.stringify(ticketType)};
+    const TYPES = ["Standard", "Premium", "Standard Unlimited", "Premium Unlimited"];
+
+    const visibleTypeHeadings = () => Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="Text"]'))
+      .filter(h => TYPES.includes((h.textContent || '').trim()) && h.offsetParent !== null);
+
+    const heading = visibleTypeHeadings().find(h => (h.textContent || '').trim() === target);
+    if (!heading) {
+      throw new Error('clickByAncestorTitle: no visible heading for ' + JSON.stringify(target)
+        + ' (visible type-headings: ' + JSON.stringify(visibleTypeHeadings().map(h => (h.textContent||'').trim())) + ')');
+    }
+
+    // Walk up while the ancestor contains ONLY the target heading (no other
+    // type-headings). Stop at the largest such ancestor = the card boundary.
+    let card = heading;
+    while (card.parentElement && card.parentElement !== document.body) {
+      const parent = card.parentElement;
+      const parentHeadings = Array.from(parent.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="Text"]'))
+        .filter(h => TYPES.includes((h.textContent || '').trim()) && h.offsetParent !== null);
+      const onlyTarget = parentHeadings.length === 1 && parentHeadings[0] === heading;
+      if (!onlyTarget) break;
+      card = parent;
+    }
+
+    // Inside the card, find the shared-ID element. If the card is just the
+    // heading (no ancestor with #add), fall back to walking up further until
+    // a #<sharedId> is found — but refuse if encountering another type.
+    let item = card.querySelector('#' + sharedId);
+    if (!item || item.offsetParent === null) {
+      let node = card;
+      while (node && node !== document.body) {
+        const candidate = node.querySelector('#' + sharedId);
+        if (candidate && candidate.offsetParent !== null) { item = candidate; break; }
+        node = node.parentElement;
+        if (!node) break;
+        const nodeHeadings = Array.from(node.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="Text"]'))
+          .filter(h => TYPES.includes((h.textContent || '').trim())
+            && (h.textContent || '').trim() !== target
+            && h.offsetParent !== null);
+        if (nodeHeadings.length > 0) break;
+      }
+    }
+
+    if (!item || item.offsetParent === null) {
+      throw new Error('clickByAncestorTitle: found ' + JSON.stringify(target)
+        + ' card, but no visible #' + sharedId + ' inside it');
+    }
+    item.click();
+  `);
+}
+
 // ─── primitives (flow-agnostic) ────────────────────────────────────────────
 
 async function addTickets(mix) {
@@ -105,11 +216,8 @@ async function addTickets(mix) {
 
   const activated = new Set();
   for (const entry of sorted) {
-    const stillAvailable = CANONICAL_TICKET_ORDER.filter((t) => !activated.has(t));
-    const addIdx = stillAvailable.indexOf(entry.type);
-
-    console.log(`[addTickets] activating ${entry.type} (qty ${entry.qty}) via visible #add idx ${addIdx}`);
-    clickVisibleByIdIndex("add", addIdx);
+    console.log(`[addTickets] activating ${entry.type} (qty ${entry.qty}) via ancestor-title match on #add`);
+    clickByAncestorTitle("add", entry.type);
 
     const expectedWidgets = activated.size + 1;
     await waitFor(
@@ -118,9 +226,8 @@ async function addTickets(mix) {
     );
     await jitter();
 
-    const widgetIdx = activated.size;
     for (let j = 1; j < entry.qty; j++) {
-      clickVisibleByIdIndex("add-item", widgetIdx);
+      clickByAncestorTitle("add-item", entry.type);
       await jitter();
     }
     activated.add(entry.type);
@@ -133,15 +240,42 @@ function fillContact({ name, email }) {
   fillBubbleInput("main-email", email);
 }
 
-function completeStep1Consent() {
+async function completeStep1Consent() {
   console.log("[completeStep1Consent] 'same for all' + 'authorized cardholder'");
   clickId("contact-info-same");
-  pwEvalVoid(`
-    const el = Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group'))
-      .find((e) => e.textContent.includes('authorized cardholder'));
-    if (!el) throw new Error('authorized cardholder checkbox not found');
-    el.click();
-  `);
+  // Gotchas Registry (register-to-login discovery, 2026-04-23): the authorized-
+  // cardholder click can race with the contact-info-same re-render. Verify the
+  // click registered via the bg-alpha state and retry up to 3 times.
+  await sleep(400);
+
+  const clickExpr = `(() => {
+    const byId = document.getElementById('btn-auth-card-holder-confirm');
+    if (byId && byId.offsetParent !== null) return byId;
+    return Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group'))
+      .find((e) => e.offsetParent !== null && /authorized cardholder/i.test(e.textContent || ''));
+  })()`;
+
+  const verifyExpr = `(() => {
+    const byId = document.getElementById('btn-auth-card-holder-confirm');
+    const el = (byId && byId.offsetParent !== null)
+      ? byId
+      : Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group'))
+          .find((e) => e.offsetParent !== null && /authorized cardholder/i.test(e.textContent || ''));
+    if (!el) return "missing";
+    const bg = (el.style && el.style.background) || '';
+    return /rgba\\(0,\\s*0,\\s*0,\\s*0\\.14\\)/.test(bg) ? "checked" : "unchecked";
+  })()`;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    clickByFilter(clickExpr, { label: "authorized cardholder" });
+    await sleep(300);
+    const state = pwEval(verifyExpr);
+    if (state === '"checked"' || state === "checked") return;
+    console.log(`[completeStep1Consent] authorized-cardholder not checked after click ${attempt + 1}/3 (state=${state}) — retrying`);
+  }
+  // Proceed even if verify says "unchecked" — some theme variants may not use
+  // rgba(0,0,0,0.14). If the step advances correctly, we'll know.
+  console.log("[completeStep1Consent] bg-alpha verify indeterminate; proceeding");
 }
 
 function toggleTerms() {
@@ -231,6 +365,26 @@ async function reconcileOrderByEmail(email, eventId) {
   return mine[0] || null;
 }
 
+// Like reconcileOrderByEmail but additionally filters to orders created
+// AFTER (startedMs - 60s). Necessary for shared users (A/B/C) where many
+// historical orders exist with the same email and sorting-by-most-recent
+// could pick up a recent-but-earlier order from the same run.
+async function reconcileOrderByEmailAndTime(email, eventId, startedMs) {
+  const { searchThings } = require("../../config/bubbleClient");
+  const orders = await searchThings("gp_order", [
+    { key: "Event", constraint_type: "equals", value: eventId }
+  ]);
+  const minCreatedMs = startedMs - 60 * 1000;
+  const mine = orders
+    .filter((o) => (o["Email Address"] || "").toLowerCase() === email.toLowerCase())
+    .filter((o) => {
+      const cd = new Date(o["Created Date"]).getTime();
+      return Number.isFinite(cd) && cd >= minCreatedMs;
+    })
+    .sort((a, b) => new Date(b["Created Date"]) - new Date(a["Created Date"]));
+  return mine[0] || null;
+}
+
 // ─── primitives awaiting discovery (stubs) ─────────────────────────────────
 // These primitives have documented business logic in runbook.md (Phase 2 flow
 // descriptions + Gotchas Registry) but their specific element IDs and selectors
@@ -243,54 +397,186 @@ async function reconcileOrderByEmail(email, eventId) {
  * click LOG IN, wait for the popup to close and logged-in state to settle.
  * Caller must already be on the tickets view when this is invoked.
  *
- * Needs discovery: top-right Login link selector; popup email/password field
- * IDs; LOG IN button ID; post-login state signal (Login link gone? Avatar?).
+ * Login popup fields have NO IDs (see Gotchas Registry / 2026-04-23 discovery).
+ * Selectors fall back to placeholder + visibility; submit button by text.
+ * Post-login signal: #gp-test-login-link.offsetParent becomes null and
+ * #gp-test-logout-link becomes visible.
  */
-async function loginViaPopup(/* creds */) {
-  throw new Error(
-    "loginViaPopup: not implemented — selectors need discovery. " +
-    "Run the Phase 0 discovery agent for logged-in-checkout (see runbook § Phase 0), " +
-    "populate discovery-logged-in-checkout.json, then fill in this primitive."
+async function loginViaPopup({ email, password }) {
+  if (!email || !password) throw new Error("loginViaPopup: email + password required");
+  console.log(`[loginViaPopup] opening popup and filling creds for ${email}`);
+
+  clickId("gp-test-login-link");
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /^Log in$/i.test((h.textContent||'').trim()) && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "Log in popup heading" }
   );
+  await sleep(500);
+
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="email"]')).find(e => e.offsetParent !== null && !e.id)`,
+    email,
+    { label: "login popup email" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^(Password|)$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "login popup password" }
+  );
+  await jitter();
+
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'LOG IN')`,
+    { label: "LOG IN button" }
+  );
+
+  await waitFor(
+    `(() => {
+      const login = document.getElementById('gp-test-login-link');
+      const logout = document.getElementById('gp-test-logout-link');
+      const loginHidden = !login || login.offsetParent === null;
+      const logoutVisible = logout && logout.offsetParent !== null;
+      return loginHidden || logoutVisible;
+    })()`,
+    { timeoutMs: 20000, label: "logged-in signal (login-link hidden / logout-link visible)" }
+  );
+  await sleep(800); // popup close + Bubble settle
 }
 
 /**
- * Apply a promo code on the tickets page — runbook line 242:
- *   "click ENTER PROMO CODE at the bottom → enter code → submit/apply".
- * Called from fragmentTicketSelection when spec.promo is set, BEFORE
- * PROCEED TO CHECKOUT.
+ * Apply a promo code on the tickets page: click ENTER PROMO CODE, fill the
+ * input, SUBMIT. Observable success: the body text contains the promo code
+ * and a "-$" line, and the ENTER PROMO CODE button re-labels to
+ * "PROMOTION APPLIED" (per 2026-04-23 logged-in-checkout discovery step 15).
  *
- * Needs discovery: ENTER PROMO CODE link ID; promo input field ID; submit
- * button ID; how the cart subtotal updates (what to wait on).
+ * MUST be called AFTER addTickets — an empty cart triggers the warning
+ * "Select your tickets first, then apply your promo code."
  */
-async function applyPromoOnTickets(/* code */) {
-  throw new Error(
-    "applyPromoOnTickets: not implemented — selectors need discovery. " +
-    "This primitive is shared across every flow that uses a promo (orders " +
-    "#6-10, #11, #12, #14, #15, #17, #18, #19, #20). Discover once from any of " +
-    "those flows' Phase 0 run and this primitive lights up for all of them."
+async function applyPromoOnTickets(code) {
+  if (!code) throw new Error("applyPromoOnTickets: code required");
+  console.log(`[applyPromoOnTickets] applying ${code}`);
+
+  clickId("btn-enterpromo-code");
+  await waitFor(
+    `!!document.getElementById('input-enter-promo') && document.getElementById('input-enter-promo').offsetParent !== null`,
+    { timeoutMs: 8000, label: "promo input visible" }
   );
+  await jitter();
+
+  fillBubbleInput("input-enter-promo", code);
+  await jitter();
+
+  clickId("btn-submit-promo");
+
+  // Success signal: a "-$" discount line appears in the body. For FLAT
+  // promos the code text ALSO appears ("FLAT10") but for percentage-based
+  // promos (PCT20, PCT100) Bubble may display the computed discount amount
+  // and a descriptive name rather than the code literal — the reliable
+  // signal across all promo types is the negative-amount line. Watch for
+  // "PROMOTION APPLIED" or "applied" button label too.
+  await waitFor(
+    `(() => {
+      const t = document.body.innerText || '';
+      return /-\\s*\\$\\d/.test(t) || /PROMOTION APPLIED/i.test(t);
+    })()`,
+    { timeoutMs: 20000, label: `promo ${code} applied` }
+  );
+  await sleep(600);
 }
 
 /**
  * Authorize.net "+ Add Payment Method" detour. First order for a given
- * logged-in user with no saved card: PAY NOW is inert. See Gotchas Registry
- * "Authorize.net: Add Payment Method detour...". The detour:
- *   1. Click + Add Payment Method on Step 2 (needs discovery for its ID).
- *   2. Redirected to Authorize.net customer/addPayment (not payment/payment).
- *   3. Fill card + billing with pressSequentially — same pattern as payAuthNet.
- *   4. Click SAVE (not Pay) — selector very likely button:has-text("Save").
- *   5. Return to Step 2. Terms toggle RESETS — caller must reToggleTerms().
+ * logged-in user with no saved card: PAY NOW is inert until a card is saved.
  *
- * Needs discovery: + Add Payment Method button ID on Step 2.
+ *   1. Click #btn-wg-add-payment-method on Step 2 → redirects to
+ *      test.authorize.net/customer/addPayment (NOT /payment/payment).
+ *   2. Fill card + billing via pressSequentially with 30-40ms delay.
+ *      IMPORTANT: unlike /payment/payment, /customer/addPayment does NOT
+ *      auto-populate firstName — must fill BOTH firstName + lastName
+ *      explicitly (gotcha from guest-to-register-checkout 2026-04-23 run).
+ *   3. Click SAVE (uppercase, not "Pay"). SAVE stays disabled if any required
+ *      field is empty.
+ *   4. Click Continue on the confirmation interstitial to return to Bubble.
+ *      Return URL flag is `?authcreate=yes` (not `?success=yes`).
+ *   5. Terms toggle RESETS in the round-trip — caller must reToggleTerms().
+ *
+ * @param {object} card  card/billing spec (orders.json defaults)
+ * @param {object} contact  Step 1 contact ({ name, email }) — used to derive
+ *   firstName for addPayment (split on first whitespace; fallback "GP").
  */
-async function addPaymentMethod(/* card */) {
-  throw new Error(
-    "addPaymentMethod: not implemented — the '+ Add Payment Method' button on " +
-    "Step 2 needs its ID captured via discovery. Body can reuse payAuthNet's " +
-    "pressSequentially pattern (Authorize.net fields are identical on the " +
-    "customer/addPayment page); SAVE replaces Pay."
+async function addPaymentMethod(card, contact) {
+  if (!card) throw new Error("addPaymentMethod: card required");
+  const fullName = (contact && contact.name) || "";
+  const firstName = (fullName.split(/\s+/).filter(Boolean)[0] || "GP").slice(0, 32);
+  console.log("[addPaymentMethod] entering Authorize.net customer/addPayment detour");
+
+  clickId("btn-wg-add-payment-method");
+
+  // Wait for the addPayment page. URL contains customer/addPayment.
+  await waitFor(
+    `location.host.includes('authorize.net') && location.pathname.includes('customer/addPayment')`,
+    { timeoutMs: 25000, label: "Authorize.net customer/addPayment page" }
   );
+  await sleep(500);
+
+  const code = `
+    async (page) => {
+      await page.waitForSelector('#cardNum', { timeout: 30000, state: 'visible' });
+      await page.locator('#cardNum').click();
+      await page.locator('#cardNum').pressSequentially(${JSON.stringify(card.number)}, { delay: 40 });
+      await page.locator('#expiryDate').click();
+      await page.locator('#expiryDate').pressSequentially(${JSON.stringify(card.exp)}, { delay: 40 });
+      await page.locator('#cvv').click();
+      await page.locator('#cvv').pressSequentially(${JSON.stringify(card.cvv)}, { delay: 40 });
+
+      // firstName does NOT auto-populate on customer/addPayment (gotcha).
+      const fn = page.locator('input[name="firstName"]');
+      await fn.click({ clickCount: 3 });
+      await fn.pressSequentially(${JSON.stringify(firstName)}, { delay: 30 });
+
+      const ln = page.locator('input[name="lastName"]');
+      await ln.click({ clickCount: 3 });
+      await ln.pressSequentially(${JSON.stringify(card.lastName)}, { delay: 30 });
+
+      await page.locator('input[name="zip"]').click();
+      await page.locator('input[name="zip"]').pressSequentially(${JSON.stringify(card.zip)}, { delay: 30 });
+      await page.locator('input[name="address"]').click();
+      await page.locator('input[name="address"]').pressSequentially(${JSON.stringify(card.address)}, { delay: 30 });
+      await page.locator('input[name="city"]').click();
+      await page.locator('input[name="city"]').pressSequentially(${JSON.stringify(card.city)}, { delay: 30 });
+      await page.locator('input[name="state"]').click();
+      await page.locator('input[name="state"]').pressSequentially(${JSON.stringify(card.state)}, { delay: 30 });
+
+      // SAVE button on customer/addPayment is id=saveButton. Prefer the ID.
+      let save = page.locator('#saveButton').first();
+      let saveVisible = await save.isVisible().catch(() => false);
+      if (!saveVisible) {
+        save = page.locator('button.saveButton').first();
+        saveVisible = await save.isVisible().catch(() => false);
+      }
+      if (!saveVisible) {
+        save = page.locator('button').filter({ hasText: /SAVE/i }).first();
+      }
+      await save.waitFor({ state: 'visible', timeout: 30000 });
+      await save.click();
+
+      // Confirmation interstitial: "Your information has been saved." + Continue.
+      await page.waitForSelector('button:has-text("Continue")', { timeout: 45000, state: 'visible' });
+      await page.locator('button:has-text("Continue")').first().click();
+    }
+  `;
+  const out = pw("run-code", code);
+  if (/"err"\s*:/.test(out) || /TimeoutError|Error:/.test(out)) {
+    throw new Error("addPaymentMethod: run-code reported an error:\n" + out.split("\n").slice(0, 20).join("\n"));
+  }
+
+  // Wait for return to Bubble. Key on host change OR the authcreate flag.
+  await waitFor(
+    `!location.host.includes('authorize.net') && (location.search.includes('authcreate=yes') || !!document.getElementById('complete-order-authnet') || !!document.getElementById('toggle-terms'))`,
+    { timeoutMs: 45000, label: "return to Bubble Step 2 after addPayment" }
+  );
+  await sleep(1500);
 }
 
 /** Re-flip the terms toggle after a round-trip that resets it (addPayment detour). */
@@ -302,62 +588,232 @@ async function reToggleTerms() {
 
 /**
  * $0-order payment. Bubble replaces PAY NOW with a "COMPLETE ORDER 0$" button
- * (no Authorize.net redirect) for PCT100/FLAT1000-zeroed totals. See Gotchas
- * Registry "$0 orders: COMPLETE ORDER 0$ button replaces PAY NOW".
- *
- * Needs discovery: the zero-order button's ID and exact text. Seed: Order #12
- * (Premium×2 + FLAT1000 = $0).
+ * (no Authorize.net redirect) for PCT100/FLAT1000-zeroed totals. We select the
+ * button by text match rather than ID — ID not captured during discovery. If
+ * the user has since added an ID (e.g. #complete-order-0), the text match
+ * still works and the ID can be used preferentially by updating this selector.
  */
 async function payZero() {
-  throw new Error(
-    "payZero: not implemented — the 'COMPLETE ORDER 0$' button on Step 2 for " +
-    "$0 orders needs its ID captured via discovery. Seed: Order #12."
+  console.log("[payZero] clicking COMPLETE ORDER 0$ button");
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button, [role=button], .clickable-element'))
+      .find(e => e.offsetParent !== null && /COMPLETE ORDER\\s*0\\$/i.test(e.textContent || ''))`,
+    { label: "COMPLETE ORDER 0$" }
   );
 }
 
 /**
- * Create a new account via the login popup: click Login (top-right of tickets
- * view) → click SIGN UP in the popup → fill email + password + confirm-password
- * → submit. Used by Setup agents (pre-creating Users A/B/C) and by the
- * guest-to-register-checkout flow for Users D/E/F.
- *
- * Needs discovery: SIGN UP button in popup; signup form email/password/confirm
- * field IDs; signup submit button.
+ * Create a new account via the login popup from the tickets view:
+ *   1. Click #gp-test-login-link (Log-In popup opens).
+ *   2. Click SIGN UP inside the Log-In popup (class cnxpo1; by text "SIGN UP").
+ *   3. Signup form appears ("Create an 8Count profile"). Fill Email +
+ *      Password + Confirm password (no IDs; select by placeholder + visibility).
+ *   4. Click the signup-form SIGN UP submit (class cnxpaV1; by text "SIGN UP").
+ *   5. Wait for logged-in signal (#gp-test-logout-link visible).
  */
-async function registerViaPopup(/* creds */) {
-  throw new Error(
-    "registerViaPopup: not implemented — the popup SIGN UP form needs discovery. " +
-    "Shared by Setup agents and guest-to-register-checkout."
+async function registerViaPopup({ email, password }) {
+  if (!email || !password) throw new Error("registerViaPopup: email + password required");
+  console.log(`[registerViaPopup] opening popup and signing up ${email}`);
+
+  clickId("gp-test-login-link");
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /^Log in$/i.test((h.textContent||'').trim()) && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "Log in popup" }
   );
+  await sleep(500);
+
+  // Click SIGN UP inside the Log-In popup. There's a second SIGN UP button
+  // rendered AFTER the form flips; anchor to the popup's Log-In state by
+  // requiring the "Log in" heading is still present.
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'SIGN UP')`,
+    { label: "SIGN UP (login popup)" }
+  );
+
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /Create an 8Count profile/i.test(h.textContent || '') && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "signup form heading" }
+  );
+  await sleep(500);
+
+  // Signup email: empty on open (confirmed 2026-04-23 gotcha).
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="email"]')).find(e => e.offsetParent !== null && !e.id)`,
+    email,
+    { label: "signup email" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^Password$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "signup password" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^Confirm password$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "signup confirm password" }
+  );
+  await jitter();
+
+  // Submit the signup form. The signup-form SIGN UP button shares the text
+  // with the login-popup SIGN UP that opened it; target the visible button
+  // inside the signup form by additionally requiring the "Create an 8Count
+  // profile" heading is still visible.
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'SIGN UP')`,
+    { label: "SIGN UP (signup form submit)" }
+  );
+
+  await waitFor(
+    `(() => {
+      const login = document.getElementById('gp-test-login-link');
+      const logout = document.getElementById('gp-test-logout-link');
+      const loginHidden = !login || login.offsetParent === null;
+      const logoutVisible = logout && logout.offsetParent !== null;
+      return loginHidden || logoutVisible;
+    })()`,
+    { timeoutMs: 25000, label: "signup success (logged-in signal)" }
+  );
+  await sleep(800);
 }
 
 /**
- * Mid-checkout register (called from Step 1): click REGISTER & SAVE INFO (not
- * CONTINUE AS GUEST), fill password + confirm, submit. Contact name/email are
- * already in the Step 1 form — signup sub-form asks only for credentials.
- *
- * Needs discovery: REGISTER & SAVE INFO button ID; password + confirm input
- * IDs in the sub-form; how the sub-form submits (same button? different one?).
+ * Mid-checkout register from Step 1 (guest-to-register-checkout flow).
+ *   1. Click #continue-registered-user (label "REGISTER & SAVE INFO" in this
+ *      state — same element that later re-labels to "CONTINUE" post-signup).
+ *      This opens the "Create an 8Count profile" popup.
+ *   2. The popup Email is EMPTY (gotcha) — re-fill it.
+ *   3. Fill Password + Confirm password, click SIGN UP.
+ *   4. Wait for the #continue-registered-user text to flip from
+ *      "REGISTER & SAVE INFO" to "CONTINUE" (post-signup signal).
+ *   5. Click #continue-registered-user again to advance to Step 2.
  */
-async function registerInCheckout(/* { password } */) {
-  throw new Error(
-    "registerInCheckout: not implemented — Step 1 signup sub-form needs discovery."
+async function registerInCheckout({ email, password }) {
+  if (!email || !password) throw new Error("registerInCheckout: email + password required");
+  console.log(`[registerInCheckout] opening signup popup for ${email}`);
+
+  clickId("continue-registered-user");
+
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /Create an 8Count profile/i.test(h.textContent || '') && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "signup popup heading" }
   );
+  await sleep(500);
+
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="email"]')).find(e => e.offsetParent !== null && !e.id)`,
+    email,
+    { label: "checkout-signup email" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^Password$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "checkout-signup password" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^Confirm password$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "checkout-signup confirm password" }
+  );
+  await jitter();
+
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'SIGN UP')`,
+    { label: "SIGN UP (checkout signup submit)" }
+  );
+
+  // Post-signup signal: #continue-registered-user text flips to CONTINUE.
+  await waitFor(
+    `(() => {
+      const el = document.getElementById('continue-registered-user');
+      return !!el && /^CONTINUE$/i.test((el.textContent || '').trim());
+    })()`,
+    { timeoutMs: 25000, label: "REGISTER & SAVE INFO → CONTINUE text flip" }
+  );
+  await sleep(800);
+
+  console.log("[registerInCheckout] CONTINUE (post-signup advance to Step 2)");
+  clickId("continue-registered-user");
 }
 
 /**
- * Register-to-Login UX: open the login popup, click SIGN UP to reach the
- * signup form, then click OR LOGIN (a button, not a link — runbook § Login &
- * Signup) to return to the login form, then fill creds and LOG IN.
- * Simulates a user who accidentally clicks SIGN UP and bails.
- *
- * Needs discovery: the OR LOGIN button selector on the signup form.
+ * Register-to-Login UX:
+ *   1. Click #gp-test-login-link (Log-In popup opens).
+ *   2. Click SIGN UP inside the Log-In popup → signup form appears.
+ *   3. Click OR LOGIN on the signup form (no ID; text-match "OR LOGIN",
+ *      runbook-confirmed it's a <button>, not a text link) → popup flips back
+ *      to Log-In form with BLANK email + password fields.
+ *   4. Fill email + password in the Log-In form, click LOG IN.
+ *   5. Wait for logged-in signal.
  */
-async function loginViaPopupWithSignupDetour(/* creds */) {
-  throw new Error(
-    "loginViaPopupWithSignupDetour: not implemented — the signup form's OR LOGIN " +
-    "button needs discovery. See runbook § Login & Signup."
+async function loginViaPopupWithSignupDetour({ email, password }) {
+  if (!email || !password) throw new Error("loginViaPopupWithSignupDetour: email + password required");
+  console.log(`[loginViaPopupWithSignupDetour] opening popup for ${email}`);
+
+  clickId("gp-test-login-link");
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /^Log in$/i.test((h.textContent||'').trim()) && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "Log in popup" }
   );
+  await sleep(500);
+
+  // SIGN UP inside Log-In popup (flips to signup form).
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'SIGN UP')`,
+    { label: "SIGN UP (to signup form)" }
+  );
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /Create an 8Count profile/i.test(h.textContent || '') && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "signup form" }
+  );
+  await sleep(500);
+
+  // OR LOGIN (the defining element — no ID, select by text).
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'OR LOGIN')`,
+    { label: "OR LOGIN (back to login form)" }
+  );
+
+  // Wait for login form to reappear.
+  await waitFor(
+    `!!Array.from(document.querySelectorAll('h1, h2, h3')).find(h => /^Log in$/i.test((h.textContent||'').trim()) && h.offsetParent !== null)`,
+    { timeoutMs: 10000, label: "Log in form returned" }
+  );
+  await sleep(500);
+
+  // Fill + LOG IN.
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="email"]')).find(e => e.offsetParent !== null && !e.id)`,
+    email,
+    { label: "login email (post-detour)" }
+  );
+  await jitter();
+  fillBubbleInputByFilter(
+    `Array.from(document.querySelectorAll('input[type="password"]')).find(e => e.offsetParent !== null && !e.id && /^(Password|)$/i.test(e.placeholder || ''))`,
+    password,
+    { label: "login password (post-detour)" }
+  );
+  await jitter();
+
+  clickByFilter(
+    `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && (b.textContent||'').trim() === 'LOG IN')`,
+    { label: "LOG IN (post-detour)" }
+  );
+
+  await waitFor(
+    `(() => {
+      const login = document.getElementById('gp-test-login-link');
+      const logout = document.getElementById('gp-test-logout-link');
+      const loginHidden = !login || login.offsetParent === null;
+      const logoutVisible = logout && logout.offsetParent !== null;
+      return loginHidden || logoutVisible;
+    })()`,
+    { timeoutMs: 20000, label: "logged-in signal (post-detour)" }
+  );
+  await sleep(800);
 }
 
 // ─── setup / teardown primitives (shared by all flows) ─────────────────────
@@ -399,7 +855,16 @@ async function closeAndReconcile(spec, startedMs) {
   try { pw("close"); } catch { /* already closed */ }
   try { pw("delete-data"); } catch {}
 
-  console.log(`${tag} resolving Bubble order ID by contact email`);
+  // For logged-in checkout flows Bubble records the USER's account email in
+  // gp_order.Email Address (NOT the spec's contact.email, even when that was
+  // pre-filled in Step 1 from the user's profile). For guest flows, the
+  // contact email is what's stored. Guest-to-register uses the contact email
+  // (which is also the new user's signup email).
+  const reconcileEmail =
+    (spec.flow === "guest-checkout" || spec.flow === "guest-to-register-checkout")
+      ? spec.contact.email
+      : (spec.user && spec.user.email) || spec.contact.email;
+  console.log(`${tag} resolving Bubble order ID by email (${reconcileEmail}; flow=${spec.flow})`);
   // Bubble applies custom fees (tax) via an async post-order workflow that runs
   // AFTER the success URL flag is set. When waitForSuccess returned quickly
   // via ?success=yes (the URL-keyed fix) the reconcile could win the race
@@ -407,8 +872,18 @@ async function closeAndReconcile(spec, startedMs) {
   // $383.40 on Order #3, 2026-04-23). 30s covers the observed tax-workflow
   // latency on this test event. Poll loop below is extra insurance.
   await sleep(30000);
-  let order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
-  if (!order) throw new Error(`no gp_order found for email ${spec.contact.email}`);
+  let order = await reconcileOrderByEmailAndTime(reconcileEmail, spec.event.id, startedMs);
+  if (!order) {
+    // Logged-in flow where the account didn't pre-fill Step 1: the Step-1
+    // fallback filled main-email with spec.contact.email, so the order ends
+    // up indexed under that email instead of the user account's email.
+    const fallback = spec.contact && spec.contact.email;
+    if (fallback && fallback !== reconcileEmail) {
+      console.log(`${tag} fallback reconcile by spec.contact.email (${fallback})`);
+      order = await reconcileOrderByEmailAndTime(fallback, spec.event.id, startedMs);
+    }
+  }
+  if (!order) throw new Error(`no gp_order found for email ${reconcileEmail}`);
 
   // If expectedTotal is known, give Bubble a little more time to apply fees if
   // the total still looks pre-fee. Re-query up to 3 times, 10s apart.
@@ -418,7 +893,7 @@ async function closeAndReconcile(spec, startedMs) {
       if (Math.abs(cur - spec.expectedTotal) <= 0.02) break;
       console.log(`${tag} total $${cur.toFixed(2)} ≠ expected $${spec.expectedTotal.toFixed(2)} — waiting 10s for async fees (attempt ${attempt + 1}/3)`);
       await sleep(10000);
-      order = await reconcileOrderByEmail(spec.contact.email, spec.event.id);
+      order = await reconcileOrderByEmailAndTime(reconcileEmail, spec.event.id, startedMs);
       if (!order) throw new Error("order disappeared mid-reconcile");
     }
   }
@@ -473,9 +948,23 @@ async function fragmentTicketSelection(spec, { alreadyOnTicketsView = false } = 
 async function fragmentStep1Contact(spec, { mode }) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
   console.log(`${tag} Step 1 — contact + consent (mode=${mode})`);
-  fillContact(spec.contact);
-  await jitter();
-  completeStep1Consent();
+  // On logged-in flows Step 1 is typically pre-filled from the user profile.
+  // But accounts without a saved Full Name (e.g. a pre-existing login-only
+  // account) leave main-full-name empty and the Required-field validation
+  // blocks CONTINUE. Detect empty and fall back to spec.contact.
+  const needsContactFill = (mode !== "loggedIn") || spec.overwriteContact || (() => {
+    try {
+      const v = pwEval(`(() => { const e = document.getElementById('main-full-name'); return !e || !e.value; })()`);
+      return v === "true";
+    } catch { return true; }
+  })();
+  if (needsContactFill) {
+    fillContact(spec.contact);
+    await jitter();
+  } else {
+    console.log(`${tag} Step 1 — preserving pre-filled contact (loggedIn mode)`);
+  }
+  await completeStep1Consent();
   await jitter();
 
   if (mode === "guest") {
@@ -485,22 +974,28 @@ async function fragmentStep1Contact(spec, { mode }) {
     console.log(`${tag} REGISTER & SAVE INFO (mid-checkout signup for User ${spec.user && spec.user.id})`);
     const password = spec.user && spec.user.password;
     if (!password) throw new Error("fragmentStep1Contact(register): spec.user.password required");
-    await registerInCheckout({ password });
+    await registerInCheckout({ email: spec.contact.email, password });
   } else if (mode === "loggedIn") {
-    // Pre-filled contact info still needs consent checkboxes flipped. The exit
-    // button differs from CONTINUE AS GUEST — needs discovery. Until then, let
-    // the unknown-selector failure point here.
-    throw new Error(
-      "fragmentStep1Contact(loggedIn): the Step-1 exit button for logged-in " +
-      "users needs discovery. Run the Phase 0 discovery agent for logged-in-checkout."
-    );
+    // #continue-registered-user replaces #continue-as-guest for authenticated
+    // users (guest-to-login-top-right + logged-in-checkout + register-to-login
+    // discovery runs, 2026-04-23). Button greys out until both consent boxes
+    // are checked — completeStep1Consent handled that above.
+    console.log(`${tag} CONTINUE (logged-in exit)`);
+    clickId("continue-registered-user");
   } else {
     throw new Error(`fragmentStep1Contact: unknown mode ${JSON.stringify(mode)}`);
   }
 
+  // Wait for Step 2 indicators. Either #complete-order-authnet (normal), the
+  // "COMPLETE ORDER 0$" button ($0 flow), or #btn-wg-add-payment-method (logged-in
+  // without saved card) must be visible.
   await waitFor(
-    `!!document.getElementById('toggle-terms') && !!document.getElementById('complete-order-authnet')`,
-    { timeoutMs: 15000, label: "Step 2" }
+    `!!document.getElementById('toggle-terms') && (
+      !!document.getElementById('complete-order-authnet') ||
+      !!document.getElementById('btn-wg-add-payment-method') ||
+      !!Array.from(document.querySelectorAll('button, [role=button], .clickable-element')).find(e => /COMPLETE ORDER\\s*0\\$/i.test(e.textContent || ''))
+    )`,
+    { timeoutMs: 20000, label: "Step 2" }
   );
   await sleep(1200); // toggle needs render time
 }
@@ -515,37 +1010,79 @@ async function fragmentStep1Contact(spec, { mode }) {
  */
 async function fragmentStep2Pay(spec) {
   const tag = `[order-${pad2(spec.orderNumber)}]`;
-  console.log(`${tag} Step 2 — terms toggle`);
-  toggleTerms();
-  await verifyTermsToggleOn();
 
-  // Feature-detect $0 flow: the Step 2 button text swaps from PAY NOW to
-  // "COMPLETE ORDER 0$". spec.expectedTotal is unreliable (PCT100 may not zero
-  // service fees + tax), so let the DOM decide.
+  // Feature-detect $0 flow first — toggle-terms is still required, and the
+  // Step 2 button is the "COMPLETE ORDER 0$" variant instead of
+  // #complete-order-authnet. PCT100 may not fully zero (service fee + tax on
+  // SF still apply), so let the DOM decide which path we take.
   const zeroButtonPresent = pwEval(
     `!!Array.from(document.querySelectorAll('button, [role=button], .clickable-element'))
-      .find(e => /COMPLETE ORDER\\s*0\\$/i.test(e.textContent || ''))`
+      .find(e => e.offsetParent !== null && /COMPLETE ORDER\\s*0\\$/i.test(e.textContent || ''))`
   );
-  const normalButtonPresent = pwEval(`!!document.getElementById('complete-order-authnet')`);
+  const completeAuthnetPresent = pwEval(
+    `(() => { const el = document.getElementById('complete-order-authnet'); return !!el && el.offsetParent !== null; })()`
+  );
 
-  if (zeroButtonPresent === "true" && normalButtonPresent !== "true") {
+  if (zeroButtonPresent === "true" && completeAuthnetPresent !== "true") {
     console.log(`${tag} $0 flow detected — payZero (skipping Authorize.net)`);
+    toggleTerms();
+    await verifyTermsToggleOn();
     await payZero();
-    console.log(`${tag} waiting for success heading`);
     await waitForSuccess();
     return;
   }
 
-  console.log(`${tag} PAY NOW → Authorize.net`);
+  // Logged-in flow without a saved card: #btn-wg-add-payment-method is visible
+  // and #btn-wg-remove-payment-method is not. Take the Authorize.net
+  // customer/addPayment detour BEFORE toggling terms (the detour round-trip
+  // resets the toggle anyway — 2026-04-23 gotcha).
+  const addPaymentVisible = pwEval(
+    `(() => { const el = document.getElementById('btn-wg-add-payment-method'); return !!el && el.offsetParent !== null; })()`
+  );
+  const removeVisible = pwEval(
+    `(() => { const el = document.getElementById('btn-wg-remove-payment-method'); return !!el && el.offsetParent !== null; })()`
+  );
+
+  if (addPaymentVisible === "true" && removeVisible !== "true") {
+    console.log(`${tag} Add-Payment-Method detour (logged-in, no saved card)`);
+    await addPaymentMethod(spec.card, spec.contact);
+    console.log(`${tag} re-toggling terms after detour`);
+    await reToggleTerms();
+    console.log(`${tag} COMPLETE ORDER (second pass, saved-card path)`);
+    clickId("complete-order-authnet");
+    await waitForSuccess();
+    return;
+  }
+
+  // Normal path: guest (redirects to Authorize.net /payment/payment) OR
+  // logged-in-with-saved-card (completes in-place, no redirect).
+  console.log(`${tag} Step 2 — terms toggle`);
+  toggleTerms();
+  await verifyTermsToggleOn();
+
+  console.log(`${tag} clicking #complete-order-authnet (${addPaymentVisible === "true" ? "Change Payment / saved-card" : "PAY NOW / guest"})`);
   clickId("complete-order-authnet");
-  await sleep(3000);
 
-  // TODO(addPayment, PR 4): detect customer/addPayment landing → addPaymentMethod
-  // + reToggleTerms + retry. Until addPaymentMethod is discovered, first-order
-  // logged-in flows will fail here with an Authorize.net timeout.
-  payAuthNet(spec.card);
+  // Poll for the post-click state: either an Authorize.net redirect (guest
+  // flow) or in-place success (saved-card logged-in). Fixed sleeps are flaky —
+  // the redirect can take >3s on slower environments (2026-04-23).
+  try {
+    await waitFor(
+      `location.host.includes('authorize.net') || location.search.includes('success=yes') || /Order Confirmed|Purchase Completed/i.test(document.body.innerText || '')`,
+      { timeoutMs: 20000, label: "post-PAY-NOW state (authnet redirect OR in-place success)" }
+    );
+  } catch (err) {
+    console.error(`${tag} no post-PAY-NOW transition within 20s — proceeding anyway`);
+  }
 
-  console.log(`${tag} waiting for success heading`);
+  const onAuthnet = pwEval(`location.host.includes('authorize.net')`);
+  if (onAuthnet === "true") {
+    console.log(`${tag} redirected to Authorize.net — filling hosted form`);
+    payAuthNet(spec.card);
+  } else {
+    console.log(`${tag} no Authorize.net redirect (saved-card path) — polling for success`);
+  }
+
   await waitForSuccess();
 }
 

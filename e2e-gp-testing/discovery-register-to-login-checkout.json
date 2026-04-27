@@ -1,23 +1,296 @@
 {
   "flow": "register-to-login-checkout",
   "version": "81rkv",
-  "capturedAt": null,
-  "status": "PENDING_DISCOVERY",
+  "capturedAt": "2026-04-23T05:37:00.000Z",
   "representativeOrder": {
     "orderNumber": 18,
-    "scenario": "Premium Unlimited×5, FLAT10 promo, User A via Login → SIGN UP → OR LOGIN detour"
+    "scenario": "Premium Unlimited × 5, FLAT10 promo, User A via Login → SIGN UP → OR LOGIN detour",
+    "startedAt": "2026-04-23T05:31:40.000Z",
+    "completedAt": "2026-04-23T05:37:00.000Z",
+    "orderId": null,
+    "orderNumberHuman": "FDUZF-4049",
+    "expectedTotal": 266.25,
+    "notes": "The live discovery run inadvertently added 5 × Standard (not Premium Unlimited): with 4 visible #add buttons on the logged-in tickets view, idx=3 resolved to Standard, not Premium Unlimited. The runbook's 'Bubble shared IDs: #add and #add-item' entry documents `0=Standard, 1=Premium, 2=Standard Unlimited, 3=Premium Unlimited` for the GUEST landing; the LOGGED-IN user view for this specific User A + event rendered a different DOM order (likely reshuffled by prior-purchase data), producing Standard at idx=3. The Order Confirmed screen showed `5 x Standard $250.00 Subtotal, -$10.00 Discount, +$10.00 SF, +$16.25 Tax = $266.25 Total`. All SELECTORS captured here are still valid for the register-to-login flow — the ticket-index issue is a separate shared-ID disambiguation problem noted in newGotchas."
   },
-  "_todo": [
-    "Run the Phase 0 discovery agent for this flow (runbook § Phase 0).",
-    "Session name: -s=gp-discovery-register-to-login-checkout.",
-    "Seed: Order #18 (Premium Unlimited×5, FLAT10, User A).",
-    "Focus primitive (stubbed in run-order.js):",
-    "  - loginViaPopupWithSignupDetour: after opening the login popup, click SIGN UP (reaches the signup form); then click the 'OR LOGIN' button (it is a button, not a text link — runbook § Login & Signup); popup flips back to login form; fill existing creds; click LOG IN.",
-    "  - The OR LOGIN button's selector is the one unique element — everything else reuses the login-popup primitives.",
-    "Verify post-login behaviour is identical to runLoggedInFlow's post-login state (still on tickets view, logged in)."
+  "steps": [
+    {
+      "step": 1,
+      "businessName": "click Tickets button on landing view",
+      "action": "click",
+      "id": "gp-test-tickets-button",
+      "tag": "BUTTON",
+      "class": "clickable-element flex-aligned-button bubble-element Button coaJvm",
+      "text": "Tickets",
+      "notes": "Unique id. Click via el.click(). URL becomes ?tab=tickets. Anchor wait: `location.search.includes('tab=tickets')`. Registry: ### Login flow: 'Login' link only appears inside the tickets view."
+    },
+    {
+      "step": 2,
+      "businessName": "click top-right Login link in tickets view",
+      "action": "click",
+      "id": "gp-test-login-link",
+      "tag": "H4",
+      "class": "bubble-element Text coaPaFs1 bubble-r-vertical-center clickable-element",
+      "text": "Login",
+      "notes": "Unique id. Triggers login popup. Wait anchor: heading h2 with text 'Log in' visible. Registry: ### UI transitions: wait for specific visible elements."
+    },
+    {
+      "step": 3,
+      "businessName": "fill Email in the Login popup (no id — target by popup + type=email)",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxpg1 a1776922338264x15883",
+      "text": "",
+      "value": "abhjoseph+usera@gmail.com",
+      "notes": "Email input in Log-In popup has NO id. Unique class `cnxpg1`. Select via: `Array.from(document.querySelectorAll('input[type=email]')).filter(e => e.offsetParent !== null)[0]`. Use native setter + input+change events (Registry: ### Bubble input: `el.value = x` does not register). The popup's Log-In form is one of THREE states this container hosts (Log-In / Sign-Up / Sign-Up after OR LOGIN flip-back); each has a unique CSS-hash class, so disambiguate by popup state heading before filling."
+    },
+    {
+      "step": 4,
+      "businessName": "fill Password in the Login popup (no id — target by popup + type=password)",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxph1 a1776922338264x15883",
+      "text": "",
+      "value": "Test123!",
+      "notes": "Password input in Log-In popup has NO id. Unique class `cnxph1`. Select via: `Array.from(document.querySelectorAll('input[type=password]')).filter(e => e.offsetParent !== null)[0]`. Native setter + input+change events. Registry: ### Bubble input."
+    },
+    {
+      "step": 5,
+      "businessName": "click SIGN UP inside the Log-In popup (flips to Sign-Up form)",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpo1",
+      "text": "SIGN UP",
+      "notes": "SIGN UP button inside the Log-In popup has NO id. Unique class `cnxpo1`. Text-based selector: `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && b.textContent.trim() === 'SIGN UP' && /cnxpo1/.test(b.className))`. DO NOT confuse with the SIGN UP button INSIDE the Sign-Up form (different class `cnxpaV1`). Wait anchor after click: heading h2 with text 'Create an 8Count profile' visible."
+    },
+    {
+      "step": 6,
+      "businessName": "click OR LOGIN on the Sign-Up form (flips popup BACK to Log-In form) — DEFINING ELEMENT of this flow",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpa1",
+      "text": "OR LOGIN",
+      "notes": "*** DEFINING ELEMENT of the register-to-login flow *** NO id. Unique class `cnxpa1` (distinct from every other button in the app). Exact text 'OR LOGIN' (uppercase, single word pair). It is a <button>, NOT a text link — runbook 'Login & Signup' section is explicit on this. Selector: `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && b.textContent.trim() === 'OR LOGIN')`. Alternate class-based: `document.querySelector('button.cnxpa1:not([style*=display:none])')` — prefer the text+visibility filter because Bubble's CSS hashes may change across republishes. After click, popup flips back to Log-In form (heading h2 = 'Log in'), Email and Password fields are BLANK again. Ask user to add an ID Attribute in the Bubble editor — this is the single most flow-critical selector with no id."
+    },
+    {
+      "step": 7,
+      "businessName": "fill Email in the popup Log-In form (post-flip, fields are empty)",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxpg1 a1776922338264x15883",
+      "text": "",
+      "value": "abhjoseph+usera@gmail.com",
+      "notes": "Same element as step 3 — the Log-In form shares unique class `cnxpg1` across the two times it becomes visible. After OR LOGIN flip, email is blank again (verified). Use native setter + input+change events."
+    },
+    {
+      "step": 8,
+      "businessName": "fill Password in the popup Log-In form (post-flip)",
+      "action": "fill",
+      "id": null,
+      "tag": "INPUT",
+      "class": "bubble-element Input cnxph1 a1776922338264x15883",
+      "text": "",
+      "value": "Test123!",
+      "notes": "Same element as step 4. Native setter + input+change events."
+    },
+    {
+      "step": 9,
+      "businessName": "click LOG IN in the popup",
+      "action": "click",
+      "id": null,
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnxpi1",
+      "text": "LOG IN",
+      "notes": "LOG IN button has NO id. Unique class `cnxpi1`. Selector: `Array.from(document.querySelectorAll('button')).find(b => b.offsetParent !== null && b.textContent.trim() === 'LOG IN' && /cnxpi1/.test(b.className))`. Post-login state signal: `document.getElementById('gp-test-login-link').offsetParent === null` (Login link hidden) AND popup heading 'Log in' no longer visible. Logout appears inside #button-back-to-event-page on mouse-over. No avatar element on this event page."
+    },
+    {
+      "step": 10,
+      "businessName": "click ADD on the Premium Unlimited ticket card (index 3 of 4 visible #add buttons)",
+      "action": "click",
+      "id": "add",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaT0",
+      "text": "ADD",
+      "notes": "Shared id `add` — filter visible (`offsetParent !== null`), pick by DOM index. Registry: ### Bubble shared IDs: `#add` and `#add-item`. CANONICAL guest-order DOM index: 0=Standard, 1=Premium, 2=Std Unlimited, 3=Prem Unlimited. CAUTION: In this live discovery run (User A, logged-in), idx 3 resolved to Standard, not Prem Unlimited (see newGotchas). Verify the card name textContent from the DOM parent of the #add element before clicking if DOM order is uncertain."
+    },
+    {
+      "step": 11,
+      "businessName": "click #add-item + 4 times on the Prem Unlimited card to reach qty 5",
+      "action": "click",
+      "id": "add-item",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group c",
+      "text": "add",
+      "notes": "After ADD click, the card transitions to quantity widget. Only one #add-item visible initially (only Prem Unlimited activated). Click idx 0 four times. Wait anchor: `document.querySelectorAll('#add-item')[0].offsetParent !== null` before each click. Registry: ### Bubble shared IDs."
+    },
+    {
+      "step": 12,
+      "businessName": "click ENTER PROMO CODE button at bottom of tickets view",
+      "action": "click",
+      "id": "btn-enterpromo-code",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpqaY0",
+      "text": "ENTER PROMO CODE",
+      "notes": "Unique id. Reveals the promo input + submit button. Wait anchor after click: `document.getElementById('input-enter-promo')` visible."
+    },
+    {
+      "step": 13,
+      "businessName": "fill promo input with FLAT10",
+      "action": "fill",
+      "id": "input-enter-promo",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnppaS0 a1776922338264x15883",
+      "text": "",
+      "value": "FLAT10",
+      "notes": "Native setter + input+change events. Registry: ### Bubble input."
+    },
+    {
+      "step": 14,
+      "businessName": "click SUBMIT to apply the promo",
+      "action": "click",
+      "id": "btn-submit-promo",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnppaX0",
+      "text": "SUBMIT",
+      "notes": "Wait anchor: body contains 'FLAT10' (applied promo badge) and a '-$' discount line. Cart subtotal should decrease by $10."
+    },
+    {
+      "step": 15,
+      "businessName": "click PROCEED TO CHECKOUT",
+      "action": "click",
+      "id": "gp-test-proceed-to-checkout",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cnpqaZ0 bubble-r-container relative",
+      "text": "PROCEED TO CHECKOUT",
+      "notes": "Unique id. Wait anchor after click: `document.getElementById('main-full-name')` visible (Step 1 loaded). Registry: ### Bubble checkout: PROCEED TO CHECKOUT containing div may intercept pointer events — if el.click() no-ops, click the inner text ref."
+    },
+    {
+      "step": 16,
+      "businessName": "probe Step 1 auto-fill (logged-in branch)",
+      "action": "wait",
+      "id": "main-full-name",
+      "tag": "INPUT",
+      "class": "bubble-element Input cnpmv0 a1776848616453x26418",
+      "text": "",
+      "value": "GP E2E Order 06",
+      "notes": "Observed: Step 1 IS auto-pre-filled for the logged-in user. main-full-name = 'GP E2E Order 06' (prior order's name), main-email = 'abhjoseph+usera@gmail.com' (User A). NO further fill is required for logged-in flow — overwrite only if the scenario demands a different ticket-holder name. Registry: ### Bubble input (if overwriting)."
+    },
+    {
+      "step": 17,
+      "businessName": "check 'contact info is same for all tickets' checkbox",
+      "action": "click",
+      "id": "contact-info-same",
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group coaWaPs1 bubble-r-container flex row",
+      "text": "checkThe contact information is the same for all tickets",
+      "notes": "Checked state signal: inline `style.background` is `none rgba(0, 0, 0, 0.14)`. Unchecked: `none rgb(255, 255, 255)`. Poll the background-alpha to verify the click registered before advancing."
+    },
+    {
+      "step": 18,
+      "businessName": "check 'I am the authorized cardholder' consent checkbox at bottom of Step 1",
+      "action": "click",
+      "id": null,
+      "tag": "DIV",
+      "class": "clickable-element bubble-element Group cpmaJo1 bubble-r-container flex row",
+      "text": "checkI am the authorized cardholder for this purchase...",
+      "notes": "NO id (Registry: ### Bubble Step-1: 'authorized cardholder' checkbox has no ID). Selector: `Array.from(document.querySelectorAll('.clickable-element.bubble-element.Group')).find(e => e.offsetParent !== null && /authorized cardholder/i.test(e.textContent))`. IMPORTANT: on the first discovery run the click missed (bg stayed rgb(255,255,255)) — always verify `style.background` contains `rgba(0, 0, 0, 0.14)` after clicking and re-click if it didn't register. This is the most flaky step after the OR LOGIN click."
+    },
+    {
+      "step": 19,
+      "businessName": "click CONTINUE on Step 1 (logged-in variant — NOT 'CONTINUE AS GUEST')",
+      "action": "click",
+      "id": "continue-registered-user",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button cnpoaE0",
+      "text": "CONTINUE",
+      "notes": "Unique id. For logged-in users, the exit button is `#continue-registered-user` (text: CONTINUE), NOT `#continue-as-guest` (which is a guest-only button). If both checkboxes above are not in the checked state (bg alpha 0.14), this button silently no-ops. Wait anchor after click: `document.getElementById('toggle-terms')` visible AND `document.getElementById('complete-order-authnet')` OR '+ Add Payment Method' text visible."
+    },
+    {
+      "step": 20,
+      "businessName": "probe Step 2 payment options — saved card vs Add Payment Method",
+      "action": "wait",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaMjaW3",
+      "text": "PAY NOW",
+      "notes": "Observed: User A has a saved payment method from prior orders, so PAY NOW button `#complete-order-authnet` is present — NO Add-Payment-Method detour needed. If a fresh User A run (no prior orders) is required, look for '+ Add Payment Method' text (Registry: ### Authorize.net: 'Add Payment Method' detour for first-order-per-logged-in-user) and branch accordingly. No #complete-order-authnet-0 element → not a $0 order."
+    },
+    {
+      "step": 21,
+      "businessName": "toggle the Terms & Conditions ionic toggle",
+      "action": "click",
+      "id": "toggle-terms",
+      "tag": "DIV",
+      "class": "bubble-element ionic-IonicToggle clickable-element",
+      "text": "",
+      "notes": "Registry: ### Bubble ionic-toggle: outer div click silently no-ops — click inner <label>. Selector: `document.getElementById('toggle-terms').querySelector('label').click()`. Verify: `document.querySelector('#toggle-terms input[type=checkbox]').checked === true`."
+    },
+    {
+      "step": 22,
+      "businessName": "click PAY NOW (saved-card path — no Authorize.net redirect needed)",
+      "action": "click",
+      "id": "complete-order-authnet",
+      "tag": "BUTTON",
+      "class": "clickable-element bubble-element Button coaMjaW3",
+      "text": "PAY NOW",
+      "notes": "With a saved card, PAY NOW completes the order IN-PAGE (no redirect to test.authorize.net). The confirmation view renders at the same URL with body text 'Order Confirmed' + 'Order #<HUMAN>'. Wait anchor: `location.search.includes('success=yes') || /Order Confirmed|Purchase Completed/.test(document.body.innerText)` (Registry: ### Authorize.net: post-return success heading is too brief — key on the URL query, although in this saved-card branch the body text persists long enough). Add-Payment-Method branch WOULD redirect — see Registry: ### Authorize.net: 'Add Payment Method' detour for first-order-per-logged-in-user."
+    },
+    {
+      "step": 23,
+      "businessName": "assert Order Confirmed + capture human order number",
+      "action": "wait",
+      "id": null,
+      "tag": "*",
+      "class": "",
+      "text": "Order Confirmed",
+      "notes": "Body contains: 'Order Confirmed\\nOrder #<HUMAN>\\n...'. Captured order #FDUZF-4049 in this run. Registry: ### Bubble async backend: tax/custom-fee workflow runs AFTER the success URL flag — wait 30s before reconciling via Bubble API."
+    }
   ],
-  "steps": [],
-  "missingIdsOnStep1": [],
-  "step2DisplayIdsMissing": [],
-  "newGotchas": []
+  "missingIdsOnStep1": [
+    "'authorized cardholder' consent checkbox (just above CONTINUE button) — shared with guest-checkout discovery, duplicates the known Registry entry",
+    "'stay up-to-date via email' opt-in checkbox — no id",
+    "CART subtotal / total display (shows $266.25) — no id; needed for observable-state wait after promo apply",
+    "CART item-count heading (shows '5') — no id",
+    "CART timer (27:10) — no id"
+  ],
+  "step2DisplayIdsMissing": [
+    "Order Total display (shows $266.25) — no id",
+    "CART subtotal header — no id",
+    "Timer/countdown — no id",
+    "Saved payment-method card summary (masked PAN shown on Step 2 for logged-in users with a card on file) — no id; needed for a deterministic 'saved-card vs add-payment' branch test"
+  ],
+  "newGotchas": [
+    {
+      "component": "Bubble login popup",
+      "symptom": "The entire Log-In popup (Email, Password, LOG IN, SIGN UP, and — on the Sign-Up side — OR LOGIN) has NO id attributes. The popup is rendered by a `div.bubble-element.CustomElement.cnxtc1` with no id.",
+      "cause": "The Bubble editor does not assign IDs to the Custom Element's inner widgets.",
+      "fix": "Ask the user to add `ID Attribute` values in the Bubble editor for at least: Log-In email, Log-In password, LOG IN button, SIGN UP button (inside Log-In), OR LOGIN button (inside Sign-Up), Sign-Up email, Sign-Up password, Sign-Up confirm-password, SIGN UP button (inside Sign-Up). Until then, select by unique Bubble CSS hash class (e.g. `cnxpg1` Log-In email, `cnxph1` Log-In password, `cnxpi1` LOG IN, `cnxpo1` SIGN UP-from-login, `cnxpa1` OR LOGIN, `cnxpaP1` Sign-Up email, `cnxpaQ1` Sign-Up password, `cnxpaU1` Sign-Up confirm, `cnxpaV1` SIGN UP-on-signup-form) combined with text content + `offsetParent !== null`. These hash classes are regenerated on republish, so the safer selector is `button/textContent === 'OR LOGIN' && offsetParent !== null`.",
+      "source": "Discovery run for register-to-login-checkout flow, 2026-04-23."
+    },
+    {
+      "component": "Bubble shared IDs — logged-in user view reshuffles #add DOM order",
+      "symptom": "Runbook Registry entry 'Bubble shared IDs: `#add` and `#add-item` disambiguated by visibility + DOM order' says initial #add visible order is `0=Standard, 1=Premium, 2=Std Unlimited, 3=Prem Unlimited`. For a logged-in User A on this event, clicking visible #add idx 3 added STANDARD (5 × $50 = $250), not Prem Unlimited. The Order Confirmed screen showed `5 x Standard`.",
+      "cause": "Unknown — possibly the logged-in view reorders cards by prior-purchase affinity, or the Premium/Unlimited cards are filtered-by-attribute for the logged-in user, or the initial `offsetParent !== null` filter is being distorted by a different layout path. Needs investigation.",
+      "fix": "DO NOT rely on static DOM-order indices on the logged-in tickets view. Before clicking #add, enumerate the 4 cards and match by their VISIBLE TITLE text. Proposed selector: walk up from each visible `button#add` to the nearest ancestor with `role=region`/group heading, read its title text (`'Standard' | 'Premium' | 'Standard Unlimited' | 'Premium Unlimited'`), and pick the matching card. Add a Registry entry on promotion.",
+      "source": "Discovery run for register-to-login-checkout flow, 2026-04-23. Representative order #18 wanted Prem Unlimited × 5 but the run produced Standard × 5; the miscount did not block discovery of the OR LOGIN selector (the defining element of this flow), but the ticket-selection primitive needs the ancestor-title strategy before Phase 2."
+    },
+    {
+      "component": "Bubble Step-1 authorized-cardholder checkbox",
+      "symptom": "First click on the authorized-cardholder group DIV silently failed — `style.background` stayed `rgb(255, 255, 255)` (unchecked) after the click. Second click on the same element checked it (`rgba(0, 0, 0, 0.14)`). CONTINUE only advances once both checkboxes register as checked.",
+      "cause": "Unknown — possibly a race between a re-render triggered by the 'contact-info-same' click immediately before it, and the 'authorized' element's onclick handler. `document.querySelectorAll('.clickable-element.bubble-element.Group')` returns a live-ish list; a re-render between `find()` and `.click()` can send the click to a stale reference.",
+      "fix": "After the 'contact-info-same' click, wait for the next tick (at least one `await page.waitForTimeout(400)` or better: poll until `#contact-info-same`'s bg is 0.14), THEN re-query the authorized-cardholder element inside the click. Verify bg is 0.14 after the click; if not, click again (up to 3 retries).",
+      "source": "Discovery run for register-to-login-checkout flow, 2026-04-23."
+    },
+    {
+      "component": "Bubble Step-1 exit button — logged-in variant",
+      "symptom": "Runbook references `#continue-as-guest` as the Step-1 exit button for the guest flow. For a logged-in user (here User A), `#continue-as-guest` does not exist; the exit button is `#continue-registered-user` (text: 'CONTINUE').",
+      "cause": "Bubble renders different exit buttons based on the user's auth state: `#continue-as-guest` for guests, `#continue-registered-user` for logged-in users. (The guest→register flow introduces a third: 'REGISTER & SAVE INFO'.)",
+      "fix": "The fragmentStep1Contact 'loggedIn mode' primitive should key on `#continue-registered-user`, not `#continue-as-guest`. Probe which id exists, then click whichever is visible. Promote this as a Registry entry once `logged-in-checkout` discovery confirms the same id.",
+      "source": "Discovery run for register-to-login-checkout flow, 2026-04-23. This is a UNIQUE finding of this flow's discovery (same as `logged-in-checkout` will be, since register-to-login terminates in the same logged-in state as logged-in-checkout)."
+    }
+  ]
 }
